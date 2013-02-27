@@ -1,0 +1,36 @@
+Version 6.x-1.1
+Repetitie in aparte module
+Send reminder nu een permissie
+Bijzonderheden in de mail (stijlbreuk)
+Send reminder functie uitgebreid.
+Send Reminder link zichtbaar gemaakt
+gigplanning.css toegevoegd
+Podiumindeling in setting en geïnplementeerd
+Handmatige wijzigingen:
+  role -> invaller toevoegen
+  Profile, veld bijzonderheden optie "invaller" toevoegen
+  Invallers toevoegen
+  permissie voor sario aanpassen - send reminder
+  content type displays checken
+  reageren VOOR datum verplicht maken
+  save and next afzetten
+
+Version 6.x-1.0
+Overzicht repetities: change NOW to CURDATE in MYSQL
+Change modulename to Gigplanning
+bijzonderheden repetitie in repetitietabel
+menu rehearsals en gigs in module
+hard values configurable
+mailfuncties structureren
+
+
+TODO:
+gp_get_all_sections_full integreren met gp_get_all_sections
+display locatie inline
+spelers_arr netjes maken (met de juiste keys)
+vraagtekens grijs in overzicht
+bijzonderheden optreden in mail
+menu structuur onafhankelijk maken
+template system
+T&B proof maken
+google mail

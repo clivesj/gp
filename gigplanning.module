@@ -1,0 +1,1106 @@
+<?php
+
+/**
+ * @file
+ * Gigplanning - module to manage your band
+ */
+
+// $Id$
+
+function gigplanning_perm() {
+  return array('change booking status', 'send reminder', 'Use repetitie');
+}
+
+function gigplanning_menu() {
+  $items['optreden/set_stage'] = array(
+    'title' => 'Optreden Set Stage',
+    'access callback' => 'user_access',
+    'access arguments' => array('change booking status'),
+    'description' => '',
+    'page callback' => 'gp_optreden_set_stage',
+    'type' => MENU_CALLBACK,
+  );
+  $items['optreden/changestatus'] = array(
+    'title' => 'Optreden',
+    'access callback' => 'user_access',
+    'access arguments' => array('change booking status'),
+    'description' => '',
+    'page callback' => 'gp_optreden_changestatus',
+    'type' => MENU_CALLBACK,
+  );
+    $items['optreden/reminder'] = array(
+    'title' => 'Reminder E-mail',
+    'access callback' => 'user_access',
+    'access arguments' => array('send reminder'),
+    'description' => '',
+    'page callback' => 'gp_optreden_reminder',
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/settings/gigplanning'] = array(
+    'title' => 'Gigplanning',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gigplanning_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'gigplanning.admin.inc',
+  );
+  $items['admin/settings/gigplanning/flex'] = array(
+    'title' => 'Flex Sections',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gigplanning_flex_settings'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'gigplanning.admin.inc',
+  );
+  $items['admin/settings/gigplanning/section_size'] = array(
+    'title' => 'Section Size',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gigplanning_section_size_settings'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'gigplanning.admin.inc',
+  );
+  $items['gp/sync_sections'] = array(
+    'page callback' => 'gigplanning_sync_sections',
+    'access arguments' => array('administer site configuration'),
+  );
+  $items['gp/user_maintenance'] = array(
+    'page callback' => 'gigplanning_users_maintenance',
+    'access arguments' => array('administer site configuration'),
+  );
+  return $items;
+}
+
+function gigplanning_init() {
+  drupal_add_css(drupal_get_path('module', 'gigplanning') .'/css/gigplanning.css');
+  drupal_add_js(drupal_get_path('module', 'gigplanning') .'/js/set_stage.js');
+}
+
+function _gp_aanw_img($aanw) {
+  if ($aanw == "Ja") {
+    return "<img src='/sites/all/themes/danland/images/aanw_Ja.png' alt='Ja' />";
+  }
+  elseif ($aanw == "Nee") {
+  return "<img src='/sites/all/themes/danland/images/aanw_Nee' alt='Nee' />";
+  }
+  else {
+    return "";
+  }
+}
+
+/* returns array containing sections
+ * $type: "repetitie" unsets unnessesary sections
+ */
+function _gp_secties($repetitie = TRUE) {
+  $sql= "SELECT DISTINCT(value) FROM profile_values WHERE fid = %d ORDER BY value ASC";
+  $result = db_query($sql, variable_get('gigplanning_section', 'profile-sectie'));
+  while ($row = db_fetch_array($result)) {
+    $rows[$row['value']] = $row['value'];
+  }
+  // TODO unset flex secties
+  unset($rows['Niet-speler']);
+  if ($repetitie) { unset($rows['Licht en Geluid'], $rows['DJ']);}
+  return $rows;
+}
+
+//used by repetitie
+function gp_repetitie_list($limit) {
+  $sql = "SELECT
+      n.nid, title,
+    r.field_soort_repetitie_value as soort,
+    r.field_status_repetitie_value as status_rep,
+    r.field_repetitie_bijzonderheden_value as bijz,
+    DATE(r.field_datum_repetitie_value) as sort_date,
+    DATE_FORMAT(DATE(r.field_datum_repetitie_value), '%%d/%%m') as datum,
+    DAYNAME(r.field_datum_repetitie_value) as dag
+      FROM node n
+          LEFT JOIN content_type_repetitie r on (n.nid = r.nid)
+          WHERE r.field_datum_repetitie_value >= CURDATE() AND type = '%s'
+        ORDER BY sort_date
+          LIMIT %d";
+  $result = db_query($sql, 'repetitie' , $limit);
+  while ($row = db_fetch_array($result)) {
+    $rows[] = $row;
+  //drupal_set_message($row['datum']);
+  }
+  return $rows;
+}
+
+function _gp_rep_user_list($user_id, $limit) {
+  $sql = _gp_repetitie_user_list_sql();
+  $result = db_query($sql, $user_id, 'repetitie' , $limit);
+  while ($row = db_fetch_array($result)) {
+    $rows[] = $row;
+  //drupal_set_message($row['datum']);
+  }
+  return $rows;
+}
+
+function _gp_repetitie_user_list_sql() {
+  return  "SELECT
+      n.nid,
+      title,
+      r.field_soort_repetitie_value as soort,
+    DATE(r.field_datum_repetitie_value) as sort_date,
+      DATE_FORMAT(DATE(r.field_datum_repetitie_value), '%%d %%M') as datum,
+      DAYNAME(r.field_datum_repetitie_value) as dag,
+      aanw, urid
+    FROM node n
+        LEFT JOIN content_type_repetitie r on (n.nid = r.nid)
+        LEFT JOIN gp_repetitie_user g on (n.nid = g.nid AND g.uid = %d)
+        WHERE r.field_datum_repetitie_value >= CURDATE() AND type = '%s'
+        ORDER BY sort_date
+          LIMIT %d";
+}
+
+function gp_optreden_changestatus($optreden_id, $speler_id, $new_status) {
+  $sql = "UPDATE {gp_optredens} SET speel_status = '%s' WHERE nid = %d AND uid = %d";
+  $res = db_query($sql, $new_status, $optreden_id, $speler_id);
+  //debug - drupal_set_message($new_status);
+  switch ($new_status) {
+      case 'ja':
+        $reactie_text = t('Je hebt je opgegeven voor dit optreden');
+        break;
+      case 'nee':
+        $reactie_text = t('Je doet niet mee. Je kunt dit indien gewenst alsnog aanpassen');
+        break;
+      case 'vraagteken':
+        $reactie_text = t('Er staat voor een vraagteken voor dit optreden. Je kunt dit indien gewenst alsnog aanpassen');
+  }
+  print drupal_to_js(
+    array (
+    'new_status' => $new_status,
+    'reactie_text' => $reactie_text,
+    'id' => $speler_id,
+    )
+  );
+}
+
+function gp_get_user_object($player_id) {
+  $sql = "SELECT * FROM {users} where uid = %d";
+  $res = db_query($sql, $player_id);
+  $plobject = db_fetch_object($res);
+  return $plobject;
+}
+
+/*
+ * pv.fid bevat de waarde voor "Sectie"
+ * $nid, nid to check which players to exclude from gig
+ */
+function gp_get_all_players_uid($node) {
+  //debug -  print_r($node);
+  // get all sections
+  $sections = gp_get_all_sections();
+  // get the sections to exclude by default
+  $excl_sections = variable_get('gigplanning_flex_sections', NULL);
+  if ($excl_sections) {
+  foreach ($excl_sections as $excl_section){
+      if ($excl_section) {
+        //unset this section
+    //debug - 		drupal_set_message($excl_section. ' will be unset');
+    unset($sections[$excl_section]);
+    }
+  }
+  }
+  //debug -  print_r($sections);
+  // get sections to include for this node
+  $flex_sections = $node-> field_also_invite;
+  //debug - print_r($flex_sections);
+  if ($flex_sections) {
+    foreach ($flex_sections as $flex_section_arrays) {
+    foreach ($flex_section_arrays as $key => $value) {
+      $sections[$value] = $value;
+    }
+  }
+  }
+  //debug -   print_r($sections);
+  // get all the members for the modified sectionlist
+  $sql="SELECT u.uid
+        FROM users u
+        JOIN profile_values pv ON (u.uid = pv.uid)
+        JOIN users_roles ur ON (u.uid = ur.uid)
+          WHERE
+          pv.fid = %d AND pv.`value` IN('". implode("','", $sections) . '\')' .
+             "AND u.`status` = 1
+              AND ur.rid = %d";
+  //TODO default value bij variable_get is onzinnig
+  $res = db_query($sql, variable_get('gigplanning_section', 'profile-sectie'),variable_get('gigplanning_role_bandmembers', 'vaste_speler'));
+  if (!$res) {
+    drupal_set_message("db error while picking up splelers_id");
+  }
+  else {
+    while ($res_arr = db_fetch_array($res)) {
+        $spelers_ids[] = $res_arr["uid"];
+    }
+  }
+  // invallers:
+  $invallers = $node-> field_invallers;
+  if ($invallers) {
+    foreach ($invallers as $invaller) {
+    if ($invaller['uid']) {
+      $spelers_ids[] = $invaller['uid'];
+      //debug - 	    print_r($spelers_ids); // 	drupal_set_message($invaller['uid']);
+    }
+  }
+  }
+  return $spelers_ids;
+}
+
+function gp_idtoname($uid) {
+  $name = db_result(db_query("SELECT name FROM {users} WHERE uid = %d", $uid));
+return $name;
+}
+
+function gp_gp_nametoid($name) {
+  $id = db_result(db_query("SELECT uid FROM {users} WHERE name = '%s'", $name));
+  return $id;
+}
+
+/* Gebaseerd op bovenstaande functie
+ * maakt een array van openstaande spelers
+ * status: ja, nee, vraagteken, geenreactie
+ * style: table, list
+ */
+
+
+function openstaande_optredens($uid) {
+  $sql = "SELECT b.nid
+         FROM gp_optredens b JOIN content_type_optreden o ON b.nid = o.nid
+         WHERE b.uid = %d AND b.speel_status = '%s' AND o.field_status_value <> 'geannuleerd' AND o.field_datum_value > NOW()";
+  $res = db_query($sql, $uid, 'geenreactie');
+  $rows =array();
+  while ($ar = db_fetch_array($res)) {
+    $tenb_node = node_load($ar['nid']);
+    array_push($ar, "<a href='/node/" . $ar['nid'] . "'>" . $tenb_node-> title . "</a>");
+    unset($ar['nid']);
+    $rows[] = $ar;
+  }
+  $output = theme('table', NULL, $rows, NULL,  "Hieronder staan de optredens waarop je nog eventueel moet reageren. Gelieve dat z.s.m. te doen.");
+return $output;
+}
+
+function gigplanning_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  if ($node-> type == "optreden") {
+    switch ($op) {
+      case 'insert':
+        gp_optreden_insert($node);
+        break;
+      case 'update':
+        gp_optreden_update($node);
+        break;
+      case 'view':
+        break;
+      case 'delete':
+        gp_optreden_delete($node);
+      break;
+    }
+  }
+}
+
+/* when node optreden is deleted this function deletes the entries in de the gig database */
+function gp_optreden_delete($node) {
+  $result = db_query("DELETE FROM {gp_optredens} WHERE nid = %d", $node-> nid);
+  if ($result) {
+    drupal_set_message('Optreden is tevens verwijderd uit spelers-database');
+  }
+  else {
+    drupal_set_message('Optreden niet verwijderd uit spelers-database');
+  }
+}
+
+function gp_optreden_insert($node) {
+  //debug - print_r($node);
+  $ids = gp_get_all_players_uid($node);
+  global $base_url;
+  //opbouw mail
+  $params['optreden_titel'] = $node-> title;
+  $params['optreden'] .= "Optreden      : " . $node-> title ."\n\n";
+  $params['optreden'] .= "Datum optreden: " . substr($node-> field_datum[0]['value'], 0, 10) ."\n";
+  $params['optreden'] .= "Reageren voor : " . substr($node-> field_reageren[0]['value'], 0, 10) ."\n";
+  $params['optreden'] .= "Tijd          : " . $node-> field_tijd[0]['value'] ."\n";
+  $params['optreden'] .= "Bijzonderheden:\n" . $node-> field_bijzonderheden[0]['value'] . "\n\n";
+  $params['optreden'] .= "Overige gegevens zijn nog niet bekend cq. beschikbaar op de website\n";
+  $params['node_url'] .= $base_url . "/node/". $node-> nid;
+  $params['afz'] = gp_idtoname($node-> uid);
+  $account = gp_get_user_object($id);
+  $params['account'] = $account;
+  foreach ($ids as $key => $id) {
+    //gegevens opslaan in tabel voor gegevens bezetting to DB
+    gp_bezetting_db($node-> nid, $id, 'insert');
+    $account = gp_get_user_object($id);
+    $params['account'] = $account;
+    drupal_mail('gigplanning', 'nwe_optreden', $account->mail, user_preferred_language($account), $params);
+  }
+}
+
+function gp_optreden_update(&$node) {
+  if ($node->field_verz_not[0]['value'] == "ja") {
+    $verzend = TRUE;
+  }
+  else {
+    $verzend = FALSE;
+  }
+  global $base_url;
+  // debug -   print_r($node);
+  $ids = gp_get_all_players_uid($node);
+  // debug -  print_r($ids);
+  foreach ($ids as $id) {
+    gp_bezetting_db($node-> nid, $id, 'edit');
+    if ($verzend) {
+    // prepare mail
+      $account = gp_get_user_object($id);
+      $params['account'] = $account;
+      $params['optreden_titel'] = $node-> title;
+      $params['optreden'] = "Datum optreden: ". substr($node-> field_datum[0]['value'], 0, 10) ."\n\n";
+      $params['optreden'] .= "De gevens van dit optreden zijn aangepast.\nBijzonderheden:\n" . $node-> field_bijzonderheden[0]['value'] . "\n\n" . "Selecteer onderstaande link voor meer informatie\n\n";
+      $params['node_url'] = $base_url . "/node/". $node-> nid;
+      $params['afz'] = gp_idtoname($node-> uid);
+        drupal_mail('gigplanning', 'update_optreden', $account->mail, user_preferred_language($account), $params);
+  }
+  }
+  if (!$verzend) {
+    $sql ="UPDATE content_type_optreden SET field_verz_not_value = '%s' WHERE %d";
+  db_query($sql, "ja",$node ->nid);
+    drupal_set_message(t("No email notifications send for this update"));
+  }
+  //remove players from db that are not anymore present in giglist
+  gp_bezetting_remove_ghosts($ids, $node-> nid);
+}
+
+// giggegevens opslaan in tabel voor bezetting
+function gp_bezetting_db($nid, $id, $mode) {
+  if ($mode == 'insert') {
+    $res = db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
+                   VALUES (%d, %d, '%s')", $nid, $id, 'geenreactie');
+  }
+  elseif ($mode == 'edit') {
+    // is er al een entry in DB voor deze $id
+  $result = db_result(db_query("SELECT COUNT(bezid) FROM {gp_optredens} WHERE nid = %d AND uid = %d", $nid, $id));
+  if (!$result) {
+      db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
+                   VALUES (%d, %d, '%s')", $nid, $id, 'geenreactie');
+  }
+  }
+}
+
+/*
+ * function removes players from DB playerslist if they are
+ * not present on the node players list */
+function gp_bezetting_remove_ghosts($node_players_list, $nid) {
+  //debug  -   drupal_set_message('checking ghosts');
+  $sql = "SELECT uid FROM {gp_optredens} WHERE nid = %d";
+  $result =  db_query($sql, $nid);
+  while ($row = db_fetch_array($result)) {
+    $db_array[] = $row['uid'];
+  }
+  if ($delete_arr = array_diff($db_array, $node_players_list)) {
+    foreach ($delete_arr as $item) {
+    db_query("DELETE FROM {gp_optredens} WHERE nid = %d AND uid = %d", $nid, $item);
+  }
+  }
+}
+
+function gp_get_status($node_id, $speler_id) {
+  $res = db_fetch_array(db_query("SELECT speel_status FROM {gp_optredens} WHERE nid = %d AND uid = %d", $node_id, $speler_id));
+  $ret = $res['speel_status'];
+  return $ret;
+}
+
+function is_actieve_speler($uid) {
+  $sql = "SELECT pv.`value` FROM profile_values pv JOIN users u ON (pv.uid = u.uid)
+          WHERE pv.fid = %d AND u.`status` = 1 AND u.uid = %d AND u.`status` = 1";
+  $instr = db_result(db_query($sql, variable_get('gigplanning_section', 'profile-sectie'), $uid));
+  //debug - drupal_set_message($instr);
+  if ($instr == "Niet-speler") { $instr = "";} //is hack JSJ
+  if ($instr) {
+    return TRUE; } else { return FALSE; }
+}
+
+function reactie_balk_link($node_id, $uid) {
+  if (!is_actieve_speler($uid)) {
+    $output = '<span class="reactie-balk-text">Geen actieve speler</span>';
+  }
+  else {
+    $optreden_status = gp_get_status($node_id, $uid);
+    $maybe_option = variable_get(gigplanning_maybe_option, 1);
+    $maybe_link_none =  l(t('Maybe'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/vraagteken', array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'reactie-buttons-button', 'style' => 'display:none;'))) . '</div>';
+    $maybe_link      = l(t('Maybe'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/vraagteken', array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'reactie-buttons-button' ))) . '</div>';
+    $yes_link_display_none = l(t('Yes'), 'optreden/changestatus/'. $node_id .'/'. $uid .'/ja', array('attributes' => array('id' => 'reactie-balk-ja',  'class' => 'reactie-buttons-button','style' => 'display:none;')));
+    $yes_link = l(t('Yes'), 'optreden/changestatus/'. $node_id .'/'. $uid .'/ja', array('attributes' => array('id' => 'reactie-balk-ja', 'class' => 'reactie-buttons-button')));
+    $no_link_display_none = l(t('No'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/nee', array('attributes' => array('id' => 'reactie-balk-nee', 'style' => 'display:none;', 'class' => 'reactie-buttons-button' )));
+    $no_link = l(t('No'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/nee', array('attributes' => array('id' => 'reactie-balk-nee', 'class' => 'reactie-buttons-button' )));
+
+      switch ($optreden_status) {
+        case 'ja':
+          $ret1 = '<span class = "reactie-balk-text">Je hebt je al opgegeven voor dit optreden</span>';
+      $ret2 = '<div id = "reactie-buttons">'.
+        $yes_link_display_none . $no_link_display_none . ($maybe_option ? $maybe_link_none : '') . '</div>';
+    break;
+      case 'nee':
+        $ret1 = '<span class = "reactie-balk-text">Je doet niet mee. Je kunt dit indien gewenst alsnog aanpassen</span>';
+    $ret2 = '<div id = "reactie-buttons">'.
+            $yes_link .  $no_link_display_none . ($maybe_option ? $maybe_link : '') . '</div>';
+      break;
+      case 'vraagteken':
+        $ret1 = '<span class = "reactie-balk-text">Er staat voor een vraagteken voor dit optreden. Je kunt dit indien gewenst alsnog aanpassen</span>';
+    $ret2 = '<div id = "reactie-buttons">'.
+             $yes_link . $no_link . ($maybe_option ? $maybe_link_none : '') . '</div>';
+        break;
+      case 'geenreactie':
+        $ret1 = '<span class = "reactie-balk-text">Je hebt nog niet gereageerd. Gaarne dit alsnog doen</span>';
+    $ret2 = '<div id = "reactie-buttons">'.
+          $yes_link . $no_link . ($maybe_option ? $maybe_link : '') . '</div>';
+        break;
+    default:
+        $ret1 = "default switch - case";
+        break;
+    }
+  $output = $ret1 . $ret2 ."<div class='clear-both'></div>";
+  }
+  return $output;
+}
+
+//TODO rechten niet naar sario maar los instelbaar (access)
+function sario_link($node_id) {
+  global $user;
+  if (user_access('send reminder') || ($user-> nid == 1)) {
+    return  l('Handmatige reminder versturen', 'optreden/reminder/'. $node_id);
+  }
+}
+
+function gp_optreden_reminder($nid) {
+  return drupal_get_form("gp_optreden_reminder_form", $nid);
+}
+
+function gp_optreden_reminder_form(&$form_state, $nid) {
+  global $base_url;
+  $spelers = deel_bezetting_arr($nid, "nee");
+  $form['nee'] = array(
+  '#prefix' =>"<table id = 'manual-remind-table'><tr><td>",
+    '#suffix' =>"</td>",
+    '#title' => 'Doen niet mee',
+      '#type' => 'checkboxes',
+    '#options' => $spelers,
+    '#selected' => TRUE,
+  );
+  $spelers = deel_bezetting_arr($nid, "ja");
+  $form['ja'] = array(
+    '#prefix' =>"<td>",
+    '#suffix' =>"</td>",
+    '#title' => 'Ja',
+      '#type' => 'checkboxes',
+    '#options' => $spelers,
+    //'#default_value' => $spelers,
+    );
+  $spelers = deel_bezetting_arr($nid, "vraagteken");
+  $form['vraagteken'] = array(
+    '#prefix' =>"<td>",
+    '#suffix' =>"</td>",
+    '#title' => 'Vraagtekens',
+      '#type' => 'checkboxes',
+    '#options' => $spelers,
+    '#default_value' => $spelers,
+    );
+  $spelers = deel_bezetting_arr($nid, "geenreactie");
+  $form['geenreactie'] = array(
+    '#prefix' =>"<td>",
+    '#suffix' =>"</td></tr></table>",
+    '#title' => 'Geen reactie',
+      '#type' => 'checkboxes',
+    '#options' => $spelers,
+    '#default_value' => $spelers,
+    );
+  $form['tekst'] = array(
+    '#type' => 'textarea',
+  '#description' => t('Tekst voor het e-mailbericht'),
+  '#default_value' => $base_url . "/node/". $nid,
+  '#cols' => 40,
+  '#rows' => 5,
+    );
+  $form['nid'] = array(
+    '#type' => 'value',
+  '#value' => $nid,
+    );
+  $form['submit'] = array(
+    '#type' => 'submit',
+  '#value' => t('Verzend e-mail'),
+    );
+  return $form;
+}
+
+function gp_optreden_reminder_form_submit($form, &$form_state) {
+  //debug - print_r($form_state);
+  $spelers = array();
+  $categorien = array("nee", "vraagteken", "geenreactie", "ja");
+  foreach ($categorien as $cat) {
+  foreach ($form_state['values'][$cat] as $naam => $waarde) {
+    if ($waarde) {
+    $spelers[] = $naam;
+    }
+  }
+  }
+  gp_manual_remind_mail($spelers, $form_state['values']['tekst'], $form_state['values']['nid'] );
+}
+
+function gigplanning_cron () {
+  $today = time();
+  $today_date_time = date_convert($today, DATA_UNIX, DATA_DATETIME);
+  //TODO: oude optredens opruimen
+  $sql = "SELECT * FROM {content_type_optreden} WHERE DATE(field_datum_value) > CURDATE()";
+  $res = db_query($sql);
+  while ($res_arr = db_fetch_array($res)) {
+    $ultimate = date_convert($res_arr['field_reageren_value'], DATE_DATETIME, DATE_UNIX);
+    $diff = floor(($ultimate - $today) / (60*60*24));
+    //debug - echo $diff;
+    if (($diff == 7) || ($diff ==2) || ($diff == 0) || ($diff < 0)) {
+      $optreden_id = $res_arr['nid'];
+      $players_arr = gp_select_players_to_remind($res_arr['nid'], $diff);
+      if (!empty($players_arr)) {
+        foreach ($players_arr as $player) {
+          gp_set_reminder_flag($player, $optreden_id, $diff);
+          gp_remind_mail($player, $res_arr['nid'], $diff);
+        }
+      }
+    }
+  } //end while
+  //nieuwe spelers
+}
+
+function gp_manual_remind_mail($name_arr, $mail_text, $nid) {
+  global $user;
+  $params['tekst'] = $mail_text;
+  //$params['from'] = $user-> mail;
+  foreach ($name_arr as $naam){
+    $account = user_load(array('name' => check_plain($naam)));
+    $params['account'] = $account;
+    drupal_mail('gigplanning', 'manual_remind_mail', $account->mail .",". $user->mail , user_preferred_language($account), $params);
+    drupal_set_message('Herinneringsmail verstuurd naar '. $naam);
+  }
+  drupal_goto('node/'. $nid);
+}
+
+function gp_remind_mail($uid, $optreden_id, $diff) {
+  if ($diff < 0) {
+    $params['verloopt'] = "is inmiddels verlopen.";
+  } elseif ($diff == 0) {
+      $params['verloopt'] = "verloopt morgen.";
+    } elseif ($diff == 2) {
+        $params['verloopt'] = "verloopt zeer binnenkort.";
+      }  elseif ($diff == 7) {
+           $params['verloopt'] = "verloopt volgende week.";
+         }
+  else {
+    return null;
+  }
+  $account = gp_get_user_object($uid);
+  $params['optreden_id'] = $optreden_id;
+  $params['remind'] = $diff;
+  $params['account'] = $account;
+  $params['sql'] = $dum;
+  drupal_mail('gigplanning', 'crontest', $account->mail , user_preferred_language($account), $params);
+}
+
+function gp_select_players_to_remind($optreden_id, $diff) {
+  $field = gp_set_db_field($diff);
+  $sql = "SELECT * FROM {gp_optredens} WHERE nid = %d AND speel_status = '%s' AND ". $field ." = 0";
+ // drupal_set_message($sql);  //debug
+  $res = db_query($sql, $optreden_id, 'geenreactie');
+  while ($res_arr = db_fetch_array($res)) {
+    $pl[] = $res_arr['uid'];
+  }
+  return $pl;
+}
+
+function gp_set_reminder_flag($player, $optreden_id, $diff) {
+  $field = gp_set_db_field($diff);
+  $sql ="UPDATE {gp_optredens} SET ". $field ." = 1 WHERE nid = %d AND uid = %d";
+  //drupal_set_message($sql . $optreden_id);
+  $res = db_query($sql, $optreden_id, $player);
+}
+
+function gp_set_db_field($diff) {
+  switch ($diff) {
+    case (0) :
+      $field = "rem_1";
+      break;
+    case (2) :
+      $field = "rem_2";
+      break;
+    case (7) :
+      $field = "rem_7";
+      break;
+    default :
+      $field = "rem_0";
+      break;
+  }
+  return $field;
+}
+
+function gigplanning_mail($key, &$message, $params) {
+  global $base_url;
+  $language = $message['language'];
+  $variables = user_mail_tokens($params['account'], $language);
+  $footer = "Met vriendelijke groeten\n\n" .$params['afz'] ."\n**********\nDit is een automatisch bericht van " . variable_get('gigplanning_email_from_name', 'Gigplanning') . "\nReageren d.m.v. \"reply\" of \"beantwoorden\" is niet mogelijk";
+  switch ($key) {
+  case 'crontest':
+    $message['subject'] = "Reactie optreden: Deadline loopt af";
+    $message['body'] = t("Beste !username\n\n", $variables, $language->language);
+    $message['body'] .= "De deadline voor het optreden \n" . $base_url . "/node/". $params['optreden_id'] ."\n". $params['verloopt'] ."\n\nGaarne zo snel mogelijk laten weten of je wel of niet kunt\n\n". $params['list'] ."\n\n";
+    $message['body'] .= $footer;
+    break;
+  case 'nwe_optreden':
+    $message['subject'] = "Aanvraag optreden: ". $params['optreden_titel'];
+    $message['body'] = t("Beste !username\n\nEr is een aanvraag voor een optreden. \nGaarne via onderstaande link op de website aangeven of je mee kunt doen.\n\n", $variables, $language->language);
+    $message['body'] .= $params['node_url'] ."\n\n";
+    $message['body'] .= $params['optreden'] ."\n";
+    $message['body'] .= $footer;
+    break;
+  case 'update_optreden':
+    $message['subject'] = "Update: ". $params['optreden_titel'];
+    $message['body'] = t("Beste !username\n\n", $variables, $language->language);
+    $message['body'] .= $params['optreden'] ."\n";
+    $message['body'] .= $params['node_url'] ."\n\n";
+    $message['body'] .= $footer;
+    break;
+  case 'manual_remind_mail':
+    $message['subject'] = "Reminder voor optreden";
+    $message['body'] = $params['tekst'] ."\n\n";
+    break;
+  }
+}
+
+function bezetting3($optreden_id, $style) {
+  global $user;
+  // secties ophalen
+  $secties = _gp_secties(FALSE);
+  foreach ($secties as $sectie) {
+    $sql = "SELECT
+      users.name AS name,
+    bez.speel_status AS speel_status,
+    bez.on_stage AS on_stage,
+    bez.nid AS nid,
+    bez.uid AS uid
+        FROM gp_optredens bez
+          JOIN   profile_values pv
+            ON (bez.uid = pv.uid)
+        JOIN users
+          ON (pv.uid = users.uid)
+     WHERE pv.`value` = '%s'
+         AND bez.nid = %d
+       AND users.`status` = 1";
+    $result = db_query($sql, $sectie, $optreden_id);
+    $spelers = array();
+    while ($row = db_fetch_array($result)) {
+      array_push($spelers, $row);
+  }
+    $bezetting3[$sectie] = $spelers;
+  }
+  return gp_html_bezetting3($bezetting3, $style);
+}
+
+/* Gebaseerd op bovenstaande functie
+ * maakt een array van de speelstatus van alle
+ * spelers
+ * style: table, list
+ */
+function bezetting3_arr($optreden_id) {
+  $sql = "SELECT
+    users.name AS name,
+  users.uid AS id,
+  bez.speel_status AS speel_status
+      FROM gp_optredens bez
+      JOIN users ON (bez.uid = users.uid)
+            WHERE bez.nid = %d
+        AND users.`status` = 1";
+  $result = db_query($sql, $optreden_id);
+  $spelers = array();
+  while ($row = db_fetch_array($result)) {
+   $spelers[$row['name']] = $row['name'];
+  }
+  return $spelers;
+}
+
+function deel_bezetting_arr($optreden_id, $speel_status){
+  $sql = "SELECT
+            users.name AS name,
+          users.uid AS id
+        FROM gp_optredens bez
+        JOIN users ON (bez.uid = users.uid)
+          WHERE bez.nid = %d
+      AND users.`status` = 1
+      AND bez.speel_status = '%s'";
+  $result = db_query($sql, $optreden_id, $speel_status);
+  $spelers = array();
+  while ($row = db_fetch_array($result)) {
+   $spelers[$row['name']] = $row['name'];
+  }
+  return $spelers;
+}
+
+function gp_html_bezetting3($bezetting, $style) {
+  global $user;
+  $podium_var = variable_get('gigplanning_podium_indeling', 0);
+  if ($style == 'table') {
+    //debug -  	print_r($bezetting);
+    $i = 0;
+    $output3 = '<div id = "bezetting">';
+    foreach ($bezetting as $sectie => $sectie_spelers_arr) {
+      //debug print_r($sectie_spelers_arr);
+    $sectie_lid = gp_sectie_lid($user-> name, $sectie_spelers_arr);
+    $sectie_size = gp_sectie_size($sectie);
+    $sectie_ja = gp_count('ja', $sectie_spelers_arr);
+    //debug  drupal_set_message($sectie . " \ count = " . count($sectie_spelers_arr) . "\ count -ja = " . gp_count('ja', $sectie_spelers_arr) . '/ size ; =  ' . gp_sectie_size($sectie));
+      $i++;
+    if ($i == 1) {
+        $output3 .= '<div id="col1">';
+    }
+    elseif ($i == 5) {
+      $output3 .= '</div><!-- close col1--><div id="col2">';
+    }
+    elseif ($i == 9) {
+      $output3 .= '</div><!-- close col2--><div id="col3">';
+    }
+    $output3 .= '<div class = "sectie-head">' . $sectie . '</div>';
+    $output3 .= '<div class = "row">';
+      foreach ($sectie_spelers_arr as $arr) {
+        if ($podium_var) {    // if podium option activated
+      if ($sectie_lid && ($arr['speel_status'] == 'ja') && ($sectie_ja > $sectie_size)) {    // if player is member of section AND is available
+            $output3 .= '<div class = "naam-label">' . $arr['name'] . onstage_widget($arr['nid'], $arr['uid'], $arr['on_stage']) . '</div>';
+      }
+      else {
+        $output3 .= '<div class = "naam-label">' . $arr['name'] . '</div>';
+      }
+          if ($arr['on_stage']) { // player is On Stage
+            $output3 .= '<div class = "' . $arr['speel_status'] . '" id = "podium-link-'. $arr['uid'] . '">' . "On Stage" . '</div><div class="clear-both"></div>';
+          }
+      else {
+            $output3 .= '<div class = "' . $arr['speel_status'] . '" id = "podium-link-'. $arr['uid'] . '">&nbsp;</div><div class="clear-both"></div>';
+      }
+    }
+    else {
+      // TODO implement version without podium option
+      if ($sectie_lid && ($arr['speel_status'] == 'ja') && ($sectie_ja > $sectie_size)) {    // if player is member of section AND is available
+            $output3 .= '<div class = "naam-label">' . $arr['name'] . onstage_widget($arr['nid'], $arr['uid'], $arr['on_stage']) . '</div>';
+      }
+      else {
+        $output3 .= '<div class = "naam-label">' . $arr['name'] . '</div>';
+      }
+          if ($arr['on_stage']) { // player is On Stage
+            $output3 .= '<div class = "' . $arr['speel_status'] . '" id = "podium-link-'. $arr['uid'] . '">' . "On Stage" . '</div><div class="clear-both"></div>';
+          }
+      else {
+            $output3 .= '<div class = "' . $arr['speel_status'] . '" id = "podium-link-'. $arr['uid'] . '">&nbsp;</div><div class="clear-both"></div>';
+      }
+    }
+    }
+    $output3 .= '</div>'; // row
+  }
+  $output3 .= '</div>'; // div col2
+  $output3 .= '<div class="clear-both"></div>';
+    $output3 .= '</div>'; // div bezetting */
+  }
+  return $output3;
+}
+
+/*
+ * returns array of players in a section for sectionname given.
+ * RID 5 = 'vaste speler'. This is not hardcoded anymore
+ */
+function _gp_sectie_spelers($sectie_naam) {
+  $sql = "SELECT u.name AS user_name
+            FROM users u
+              JOIN profile_values pv
+                ON (u.uid = pv.uid)
+         JOIN users_roles ur
+        ON (u.uid = ur.uid)
+             WHERE pv.value = '%s' AND u.status = %d AND ur.rid = %d";
+  $result = db_query($sql, $sectie_naam, 1, variable_get('gigplanning_role_bandmembers',''));
+  while ($row = db_fetch_array($result)) {
+    $rows[] = $row['user_name'];
+  }
+  //debug -   print_r($rows);
+  return $rows;
+}
+
+
+/**************************************************************************************/
+
+/**
+ * Implementation of hook theme
+  * This will register the theme function with drupal
+  */
+function gigplanning_theme() {
+  return array(
+/*    'aanw_widget' => array(
+      'arguments' => array('nid', 'uid', 'status', 'own_row', 'user_this_row'),
+    ),*/
+  'onstage_widget' => array(
+    'arguments' => array('nid', 'uid', 'cur_state'),
+    ),
+  );
+}
+
+/* the function for onstage_widget */
+function theme_onstage_widget($nid, $uid, $cur_state) {
+  // $elem_id = $nid . $uid_this_row;                     //id is voor jQuery element element selection
+  $output = '<div class = "podium-link">' . '<a class= "podium-link-actie" href=/optreden/set_stage/' . $nid . '/' . $uid . '/' . $cur_state . '>' . t('On Stage') . '</a></div>';
+  return $output;
+}
+
+/* When the OnStage button is clicked this function
+ * will be called to toggle the ons ateg setting
+ */
+
+function gp_optreden_set_stage($nid, $uid, $cur_state) {
+  if ($cur_state) {  // = 1
+    $new_state = 0;
+  $stage_text = "";
+  }
+  else {
+    $new_state = 1;
+  $stage_text = t("On Stage");
+  }
+  $sql = "UPDATE {gp_optredens} SET on_stage = %d WHERE nid = %d AND uid = %d";
+  db_query($sql, $new_state, $nid, $uid);
+  print drupal_to_js(
+    array(
+      'id' => $uid,
+    'stage_text' => $stage_text,
+  )
+  );
+}
+
+function onstage_widget($nid, $uid, $cur_state) {
+  drupal_add_js(drupal_get_path('module', 'gigplanning') .'/js/set_stage.js');
+  return theme('onstage_widget', $nid, $uid, $cur_state);
+}
+
+/* returns all sections */
+function gp_get_all_sections() {
+  $fid = variable_get('gigplanning_section', NULL);
+  $sql = "SELECT DISTINCT value FROM {profile_values} WHERE fid = %d";
+  $result = db_query($sql, $fid);
+  $sections = array();
+  while ($row = db_fetch_array($result)) {
+    $sections[$row['value']] = $row['value'];
+  }
+  return $sections;
+}
+
+function gp_get_all_sections_full() {
+  $fid = variable_get('gigplanning_section', NULL);
+  $sql =  "SELECT DISTINCT pv.`value`, gss.id, gss.section_size AS size
+           FROM profile_values pv
+           LEFT OUTER JOIN gp_section_size gss ON (pv.`value` = gss.section_name)
+           WHERE pv.fid = %d";
+  $result = db_query($sql, $fid);
+  $sections = array();
+  while ($row = db_fetch_array($result)) {
+    $rows[] = $row;
+  }
+  return $rows;
+}
+
+/* returns sections (array) to include per node */
+function gp_include_sections($nid) {
+  $sql = "SELECT flex_sections FROM {gp_flex_sections} WHERE nid = %d";
+  $result = db_result(db_query($sql, $nid));
+  if ($result) {
+    // debug - drupal_set_message($result);
+    $sections = unserialize($result);
+    return $sections;
+  }
+  else {
+    drupal_set_message('No flex sections found for this gig '. $nid);
+  return FALSE;
+  }
+}
+
+function gigplanning_requirements($phase) {
+  $req = array();
+  if ($phase == 'runtime') {
+    // Check if section sizes are set and synced with DB
+    $sections = gp_get_all_sections_full();
+    $synced = TRUE;
+    foreach ($sections as $section) {
+      if (!$section['id']) {
+        $synced = FALSE;
+      }
+    }
+    if ($synced) {
+      $sync_info = t("Section DB is synced with Profile sections");
+      $sev = REQUIREMENT_OK;
+    }
+    else {
+      $sync_info = "Section DB not synced with Profiles. Select this " . '<a href = "/gp/sync_sections">link</a>' . " to sync the data";
+      $sev = REQUIREMENT_ERROR;
+    }
+    $req['gp'] = array(
+      'value' => $sync_info
+    );
+  }
+  $req['gp']['title'] = 'Gigplanning';
+  $req['gp']['severity'] = $sev;
+  return $req;
+}
+
+/* Functie kijkt of er voor iedere sectie een gigplaaning dn entry bestaat */
+function gigplanning_sync_sections() {
+  $sections = gp_get_all_sections_full();
+  foreach ($sections as $section) {
+    if (!$section['id']) { _gp_sync_section($section);}
+  }
+  drupal_goto('/admin/reports/status');
+}
+
+function _gp_sync_section($section) {
+  $sql = "INSERT INTO {gp_section_size} (section_name, section_size) VALUES ('%s', %d)";
+  db_query($sql, $section['value'], 0);
+}
+
+function gp_sectie_size($section) {
+  $id = db_result(db_query("SELECT id FROM {gp_section_size} WHERE section_name = '%s'", $section));
+  return variable_get('gigplanning_section_size_' . $id, 0);
+}
+
+function gp_sectie_lid($name, $arr) {
+  return in_array_r($name, $arr);
+}
+
+function in_array_r($needle, $haystack, $strict = true) {
+  foreach ($haystack as $item) {
+    if (($strict ? $item === $needle : $item == $needle) || (is_array($item) && in_array_r($needle, $item, $strict))) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+function gp_count($needle, $haystack) {
+  $count = 0;
+  foreach ($haystack as $arr) {
+    (in_array($needle, $arr) ? $count++ : $count = $count);
+  }
+  return $count;
+}
+
+function gigplanning_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      $blocks[0]['info'] = t('Top Proposals');
+      $blocks[0]['cache'] = BLOCK_NO_CACHE;
+      return $blocks;
+    case 'configure':
+      // Only in block 0 (the Pending comments block) can one
+      // set the number of comments to display.
+      $form = array();
+      if ($delta == 0) {
+        $form['gp_top_proposals_num'] = array(
+          '#type' => 'textfield',
+          '#title' => t('Number of pending comments to display'),
+          '#default_value' => variable_get('gigplanning_top_proposals_num', 8),
+        );
+      }
+      return $form;
+    case 'save':
+      if ($delta == 0) {
+        variable_set('gigplanning_top_proposals_num', (int)$edit['gp_top_proposals_num']);
+      }
+    break;
+    case 'view':
+    if ($delta == 0) {
+        $num_posts = variable_get('gp_top_proposals_num', 8);
+        // Query the database for data
+      $sql = "SELECT
+              node.nid AS nid,
+          RPAD(LEFT(node.title, 24),33,'.') AS nummer, vote.`value` AS score,
+          voorstel.field_status_voorstel_value AS v_status
+                FROM node node
+                INNER JOIN users users ON node.uid = users.uid
+                LEFT JOIN votingapi_cache vote ON node.nid = vote.content_id
+        JOIN content_type_voorstel voorstel ON (node.nid = voorstel.nid)
+                WHERE (node.status = 1)
+          AND (node.type in ('%s'))
+            AND (vote.`function` = '%s')
+            AND ((voorstel.field_status_voorstel_value IS NULL) OR (voorstel.field_status_voorstel_value = '%$'))
+                ORDER BY Score DESC LIMIT %d";
+
+
+        $result = db_query($sql, 'voorstel', 'sum', $num_posts, 'proposal');
+        $destination = drupal_get_destination();
+        $data = array();
+        while ($row = db_fetch_array($result)) {
+          $rows[] =
+        l($row['nummer'] . '(' . $row['score'] . ')', 'node/'. $row['nid']);
+        }
+        $block['subject'] = t('Top proposals');
+        // We theme our array of links as an unordered list.
+        $block['content'] = theme('item_list', $rows, NULL, 'ol') . '<p><a href= "voorstellen">Overzicht&nbsp;voorstellen &raquo;</a>';
+      }
+      elseif ($delta == 1) {
+      }
+    return $block;
+  }
+}
+
+/* Amount of gigs this year */
+function gp_nmbr_gigs($nid) {
+}
+
+/*
+ * This is a maintanance function. Please run it after insterting or deleting a bandmemder
+ * is assures. The gp_tables stays uo to date
+ */
+function gigplanning_users_maintenance() {
+  // make shure all active players are listed in gigtables:
+  $players = gp_get_active_players_list();
+  $gigs = gp_get_current_gigs();
+  foreach ($players as $uid) {
+    foreach ($gigs as $nid) {
+      _gp_user_maint($uid, $nid);
+    }
+  }
+  drupal_goto('');
+}
+
+function _gp_user_maint($uid, $nid) {
+  $sql = "SELECT bezid FROM gp_optredens WHERE uid =%d AND nid =%d";
+  $bezid = db_result(db_query($sql, $uid, $nid));
+  if (!$bezid) {
+    //we have to enter this into gp_optredens
+    gp_add_player_to_gig($uid, $nid);
+    drupal_set_message('No bezid (' . $bezid . ')  for ' . $uid . ' at ' .  $nid);
+  }
+  else {
+    drupal_set_message('bezid (' . $bezid . ')');
+  }
+}
+
+//get the list of all current gigs
+function gp_get_current_gigs() {
+  $gigs = array();
+  $sql = "SELECT nid FROM {content_type_optreden} WHERE DATE(field_datum_value) > CURDATE()";
+  $result = db_query($sql);
+  while ($row = db_fetch_array($result)) {
+    $gigs[] = $row['nid'];
+  }
+  return $gigs;
+}
+
+//returns an array with the uids of current full-time players
+function gp_get_active_players_list() {
+  $player_ids = array();
+  $sql = '
+  SELECT users.uid AS users_uid
+  FROM users users
+  INNER JOIN users_roles users_roles ON users.uid = users_roles.uid
+  WHERE users_roles.rid = %d AND users.status = %d';
+  $result = db_query($sql, variable_get(gigplanning_role_bandmembers, NULL), 1);
+
+  while ($row = db_fetch_array($result)) {
+    $player_ids[] = $row['users_uid'];
+  }
+  return $player_ids;
+}
+
+function gp_add_player_to_gig($uid, $nid) {
+  $sql = "INSERT INTO gp_optredens (nid, uid, speel_status) VALUES (%d, %d, '%s')";
+  db_query($sql, $nid, $uid, 'geenreactie');
+}

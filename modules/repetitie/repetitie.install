@@ -1,0 +1,42 @@
+<?php
+// install file for repetitie
+
+// implementation hook_install
+function repetitie_install() {
+  if (!db_table_exists('gp_repetitie_user')) {
+    //only create table if in doesn't excists
+	drupal_install_schema('repetitie');
+  }
+}
+
+/* implementation hook_schema */
+function repetitie_schema() {
+  $schema['gp_repetitie_user'] = array(
+    'description' => t('TODO: please describe this table!'),
+    'fields' => array(
+      'urid' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'uid' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'int',
+        'not null' => FALSE,
+      ),
+      'aanw' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'varchar',
+        'length' => '16',
+        'not null' => FALSE,
+      ),
+      'nid' => array(
+        'description' => t('TODO: please describe this field!'),
+        'type' => 'int',
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('urid'),
+  );
+}

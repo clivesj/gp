@@ -1,0 +1,137 @@
+/* CSS Document */
+
+#manual-remind-table td {vertical-align:top};
+
+div.aanw-widget { text-align:center; background:url(aanw_Ja.png) no-repeat center;}
+div.status-ja { background:url(aanw_Ja.png) no-repeat center;}
+div.status-nee { background:url(aanw_Nee.png) no-repeat center;}
+div.podium-link { background-color: #FFFFDD; border: 1px solid #FFCC33; border-radius: 4px 4px 4px 4px; float:right; font-size: 0.7em; line-height: 1em; padding: 4px;}
+#reactie-balk-ja,
+#reactie-balk-nee,
+#reactie-balk-vraagteken { color: #FFF; border: 1px solid #000; border-radius: 4px 4px 4px 4px; float:left; font-size: 0.7em; line-height: 1em; padding: 4px; margin:0px 4px 2px 0px;}
+#reactie-balk-ja { background-color: #00CC33;}
+#reactie-balk-nee { background-color: #FF3333;}
+#reactie-balk-vraagteken { background-color: #999999;}
+
+div.gp-section-size {border: 1px #9C6 solid; float:left; padding: 4px;}
+
+
+.breadcrumb {border: none; background-color:transparent; color:#B6B66B;}
+/* Bottom teaser - copyright verbergen  ---- */
+#bottom-teaser {background-color: #333;	color: #ffffff;}
+
+#notice {display: none;}
+
+#footer {border-top:none;}  /*lijn boven aan de footer weggeheaald*/
+
+#slideshow-wrapper { background: url("images/slideshow-shadow.gif") no-repeat scroll center bottom transparent;  height: 320px;}
+
+.logo-name {    font-style: normal;    font-weight: normal;}
+.sticky {    background-color: #FFFFFF; }
+
+
+/* Aanpassingen JSJ */
+.field .field-label-inline, 
+.field .field-label-inline-first { display: inline-table; width: 20%;}
+
+/*  TABEL BEZETTING   */
+.bezetting caption { background-color:#FBFBFB; margin-top:10 px; margin-bottom:0px; text-align:center; font-weight:600; font-size: 14px; color: #999; border: 1px solid #E1E1E2; padding: 4px 14px;}
+
+.reactie a { font-weight:bold;}
+div.bezetting th {border-bottom:none;}
+div.bezetting td.bezetting_sectie { background-color: #E9E9E9; border: 1px solid #CCC;}
+div.bezetting td { border-right: 2px solid #CCC;}
+div.bezetting td.bezetting-speler { background-color: #6F3; border: 1px solid #CCC; vertical-align:text-top; padding: 4px 14px;}
+div.bezetting td.bezetting-speler-empty { border: 1px solid #CCC; vertical-align:text-top; padding: 4px 14px;}
+
+div.optreden-tabel { background-color: #9C6; padding:0;}
+.voorstellen-tabel td{ padding: 0px;}
+.optreden-tabel table {padding: 2px 2px;}
+.optreden-tabel td{	padding: 4px 8px;}
+
+.optreden-tabel td.label {background-color: #9C9; width: 25%; font-weight:bold;}
+
+div.optreden-tabel td tr{border:none;}
+
+.comment .user-picture img { background-color: #FCFCFC; display:table-row; padding: 2px; width: 65px;}
+
+.komende-optredens td,
+.oude-optredens td { padding: 4px;}
+.oude-optredens .page-title{ margin-top: 40px;}
+
+.vud-widget-upanddown {float: right;}
+/* SIDEBAR AND BLOCK HEADING SETTINGS */
+#sidebar-left h2.block-title, #sidebar-right h2.block-title {
+    background: url("images/block_title_wide_gp_web.png") repeat-x scroll 0 0 transparent;
+    border: 0 none;
+    font-family: "Comic Sans MS",cursive;
+    font-size: 1.4em;
+    padding: 10px 10px 26px 40px;
+}
+#sidebar-left.sidebar div.block-content, #sidebar-left.sidebar div.block-content { border: none;}
+
+/*         REPETITIE PAGINA      */
+
+table#repetitie-form,
+#repetitie-user {  background-color: #D3D3D3; background-image: url("images/grijs-gradient.png");
+    /*background-position: 0 -1800px;*/
+    background-repeat: repeat;
+    border-radius: 5px 5px 5px 5px;
+    display: block;
+    padding: 5px;
+	margin-top: 10px;}
+	
+table#repetitie-form tbody {border: none;}
+table.repetitie-user-tabel { margin-bottom:10px;}
+table.repetitie-user-tabel td{	padding-bottom: 10px;}
+table#repetitie-form th {
+    background: url("images/block_title_gp_web.png") repeat-x scroll 0 0 transparent;
+    border-left:  #B6B66B solid 1px;
+	border-right:  #B6B66B solid 1px;
+    font-family: "Comic Sans MS",cursive;
+    font-size: 1.3em;
+    padding: 8px 6px;
+}
+table#repetitie-form td { border-left: #B6B66B 1px solid; border-right: #B6B66B 1px solid; /*background-color:#CCC;*/ vertical-align:top;}
+table#repetitie-form td.last-td { width: 35%; border-right: none;}
+table#repetitie-form td.first-td { width: 35%; border-left: none;}
+table#repetitie-form tbody tr td.last-td div.textarea-identifier { display:none;}
+
+table.repetitie-user-tabel label.option {
+  /*float:left*/;}
+td.gp-td-name { font-weight:bold;} 
+td.gp-col-head { text-align:center; background-color:#FF9; border-bottom:#666 thin; font-weight:bold;}
+.td-aanwezigheid { text-align:center;}
+th.Vervallen, .td-aanwezigheid-vervallen {  background-color:#999;}
+
+div.td-Jalink {background-color: #00B300; margin-right:4px;}
+div.td-Neelink {background-color: #FF2424;} 
+div.td-Neelink, div.td-Jalink { line-height:1em; width: 24px; float:left; border-radius: 4px 4px 4px 4px; font-size:0.7em;}
+div.td-img {text-align:center;}
+/* ------------------------------------------------*/
+#bezetting { font-weight:bold; margin-top: 2px; }
+#bezetting .div { border:#666 thick;}
+#bezetting .sectie-head { width:100%; text-align:center; background-color:#FF9; border-bottom:  #FC3 2px solid; padding: 2px 0px;}
+#bezetting .row { width: 300px; /*border: #999 1px solid;*/}
+#col1, #col2 ,#col3 {width:300px; float: left; border: #999 1px solid; border-right: #999 3px solid;}
+.naam-label { width:134px; }
+.ja { background-color: #0C3;}
+.nee { background-color:#F33; }
+.geenreactie { background-color: #FFF;}
+.vraagteken {background-color: #999999; }
+.ja, .nee, .geenreactie, .vraagteken { border-left: #999 1px solid; width: 133px; }
+.naam-label, .ja, .nee, .geenreactie, .vraagteken { float: left; padding: 2px 8px; border-bottom: #999 1px solid;}
+/*.naam-label, .ja, .nee, .geenreactie, .sectie-head { }*/
+/*--------------------------------------------------*/
+.clear-both { clear: both;}
+
+html.js fieldset.collapsible legend a { background-color: #FFFFDD; border-radius: 10px 10px 10px 10px; border: 2px #FC3 solid; display: block; padding-right: 10px; }
+
+img.gp-blog-pic { float:right;}
+
+.gp-button-container {
+  border: 1px #FC3 solid; display: block; border-radius: 10px; padding: 4px;
+	}
+
+
+  
