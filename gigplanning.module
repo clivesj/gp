@@ -194,7 +194,7 @@ function gp_get_all_players_uid($node) {
   foreach ($excl_sections as $excl_section){
       if ($excl_section) {
         //unset this section
-    //debug - 		drupal_set_message($excl_section. ' will be unset');
+    //debug -     drupal_set_message($excl_section. ' will be unset');
     unset($sections[$excl_section]);
     }
   }
@@ -236,7 +236,7 @@ function gp_get_all_players_uid($node) {
     foreach ($invallers as $invaller) {
     if ($invaller['uid']) {
       $spelers_ids[] = $invaller['uid'];
-      //debug - 	    print_r($spelers_ids); // 	drupal_set_message($invaller['uid']);
+      //debug -       print_r($spelers_ids); //   drupal_set_message($invaller['uid']);
     }
   }
   }
@@ -738,7 +738,7 @@ function gp_html_bezetting3($bezetting, $style) {
   global $user;
   $podium_var = variable_get('gigplanning_podium_indeling', 0);
   if ($style == 'table') {
-    //debug -  	print_r($bezetting);
+    //debug -    print_r($bezetting);
     $i = 0;
     $output3 = '<div id = "bezetting">';
     foreach ($bezetting as $sectie => $sectie_spelers_arr) {
@@ -981,11 +981,43 @@ function gp_count($needle, $haystack) {
   return $count;
 }
 
+/**
+ * Implements hook_block_info().
+ */
+function gigplanning_block_info() {
+  $blocks['top_proposals'] = array(
+    'info' => t('Top Proposals'),
+  );
+  $blocks['gp_icon_menu'] = array(
+    'info' => t('GP Icon Menu'),
+  );
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function gigplanning_block_view($delta = '') {
+  switch ($delta) {
+    case 'gp_icon_menu':
+      $block['subject'] = NULL;
+      $block['content'] = _block_gp_icon_menu();
+      return $block;
+      break;
+  }
+}
+
+function _block_gp_icon_menu() {
+  return array('#markup' => "<p><img src='". drupal_get_path('module', 'gigplanning') . "/images/gp_icoon_my_account.png' alt='GP icoon'></p>");
+}
+
 function gigplanning_block($op = 'list', $delta = 0, $edit = array()) {
   switch ($op) {
     case 'list':
       $blocks[0]['info'] = t('Top Proposals');
       $blocks[0]['cache'] = BLOCK_NO_CACHE;
+      $blocks[1]['info'] = t('GP Icon Menu');
+      $blocks[1]['cache'] = BLOCK_NO_CACHE;
       return $blocks;
     case 'configure':
       // Only in block 0 (the Pending comments block) can one
