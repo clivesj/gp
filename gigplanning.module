@@ -36,21 +36,32 @@ function gigplanning_menu() {
     'page callback' => 'gp_optreden_reminder',
     'type' => MENU_CALLBACK,
   );
-  $items['admin/settings/gigplanning'] = array(
+  $items['admin/config/gigplanning'] = array(
     'title' => 'Gigplanning',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('gigplanning_admin_settings'),
+    'description' => 'Configure Gigplanning',
+    'position' => 'right',
+    'weight' => -5,
+    'page callback' => 'system_admin_menu_block_page',
     'access arguments' => array('administer site configuration'),
-    'file' => 'gigplanning.admin.inc',
+    'file' => '/system/admin/inc',
+    'file_path' => drupal_get_path('module', 'system'),
   );
-  $items['admin/settings/gigplanning/flex'] = array(
+  $items['admin/config/gigplanning/settings'] = array(
+      'title' => 'Gigplanning Settings',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('gigplanning_admin_settings'),
+      'access arguments' => array('administer site configuration'),
+      'file' => 'gigplanning.admin.inc',
+      'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/config/gigplanning/flex'] = array(
     'title' => 'Flex Sections',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gigplanning_flex_settings'),
     'access arguments' => array('administer site configuration'),
     'file' => 'gigplanning.admin.inc',
   );
-  $items['admin/settings/gigplanning/section_size'] = array(
+  $items['admin/config/gigplanning/section_size'] = array(
     'title' => 'Section Size',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gigplanning_section_size_settings'),
@@ -89,11 +100,15 @@ function _gp_aanw_img($aanw) {
  * $type: "repetitie" unsets unnessesary sections
  */
 function _gp_secties($repetitie = TRUE) {
-  $sql= "SELECT DISTINCT(value) FROM profile_values WHERE fid = %d ORDER BY value ASC";
-  $result = db_query($sql, variable_get('gigplanning_section', 'profile-sectie'));
-  while ($row = db_fetch_array($result)) {
-    $rows[$row['value']] = $row['value'];
+  $sql= "SELECT DISTINCT(value) FROM profile_value WHERE fid = :d ORDER BY value ASC";
+  $result = db_query($sql, array(':d' => variable_get('gigplanning_section', 'profile-sectie')));
+  $rows = array();
+  foreach ($result as $row) {
+     $rows[$row-> value] = $row-> value;
   }
+  /* D6 while ($row = db_fetch_array($result)) {
+    $rows[$row['value']] = $row['value'];
+  } */
   // TODO unset flex secties
   unset($rows['Niet-speler']);
   if ($repetitie) { unset($rows['Licht en Geluid'], $rows['DJ']);}
@@ -112,23 +127,22 @@ function gp_repetitie_list($limit) {
     DAYNAME(r.field_datum_repetitie_value) as dag
       FROM node n
           LEFT JOIN content_type_repetitie r on (n.nid = r.nid)
-          WHERE r.field_datum_repetitie_value >= CURDATE() AND type = '%s'
+          WHERE r.field_datum_repetitie_value >= CURDATE() AND type = ':type'
         ORDER BY sort_date
-          LIMIT %d";
-  $result = db_query($sql, 'repetitie' , $limit);
-  while ($row = db_fetch_array($result)) {
-    $rows[] = $row;
-  //drupal_set_message($row['datum']);
+          LIMIT ':limit'";
+  $result = db_query($sql, array(':type' => 'repetitie', ':limit' => $limit));
+  foreach ($result as $row) {
+    $rows[] = (array)$row;
+    //drupal_set_message($row['datum']);
   }
   return $rows;
 }
 
 function _gp_rep_user_list($user_id, $limit) {
   $sql = _gp_repetitie_user_list_sql();
-  $result = db_query($sql, $user_id, 'repetitie' , $limit);
-  while ($row = db_fetch_array($result)) {
-    $rows[] = $row;
-  //drupal_set_message($row['datum']);
+  $result = db_query($sql, array(':uid' => $user_id, ':type' => 'repetitie', ':limit' => $limit));
+  foreach ($result as $row) {
+    $rows[] = (array)$row;
   }
   return $rows;
 }
@@ -144,15 +158,15 @@ function _gp_repetitie_user_list_sql() {
       aanw, urid
     FROM node n
         LEFT JOIN content_type_repetitie r on (n.nid = r.nid)
-        LEFT JOIN gp_repetitie_user g on (n.nid = g.nid AND g.uid = %d)
-        WHERE r.field_datum_repetitie_value >= CURDATE() AND type = '%s'
+        LEFT JOIN gp_repetitie_user g on (n.nid = g.nid AND g.uid = ':uid')
+        WHERE r.field_datum_repetitie_value >= CURDATE() AND type = ':type'
         ORDER BY sort_date
-          LIMIT %d";
+          LIMIT ':limit'";
 }
 
 function gp_optreden_changestatus($optreden_id, $speler_id, $new_status) {
-  $sql = "UPDATE {gp_optredens} SET speel_status = '%s' WHERE nid = %d AND uid = %d";
-  $res = db_query($sql, $new_status, $optreden_id, $speler_id);
+  $sql = "UPDATE {gp_optredens} SET speel_status = ':speel_status' WHERE nid = ':nid' AND uid = ':uid'";
+  $res = db_query($sql, array(':speel_status' => $new_status, ':nid' => $optreden_id, ':uid' => $speler_id));
   //debug - drupal_set_message($new_status);
   switch ($new_status) {
       case 'ja':
@@ -174,8 +188,8 @@ function gp_optreden_changestatus($optreden_id, $speler_id, $new_status) {
 }
 
 function gp_get_user_object($player_id) {
-  $sql = "SELECT * FROM {users} where uid = %d";
-  $res = db_query($sql, $player_id);
+  $sql = "SELECT * FROM {users} where uid = ':uid'";
+  $res = db_query($sql, array(':uid' => $player_id));
   $plobject = db_fetch_object($res);
   return $plobject;
 }
@@ -194,7 +208,7 @@ function gp_get_all_players_uid($node) {
   foreach ($excl_sections as $excl_section){
       if ($excl_section) {
         //unset this section
-    //debug - 		drupal_set_message($excl_section. ' will be unset');
+    //debug -     drupal_set_message($excl_section. ' will be unset');
     unset($sections[$excl_section]);
     }
   }
@@ -214,14 +228,14 @@ function gp_get_all_players_uid($node) {
   // get all the members for the modified sectionlist
   $sql="SELECT u.uid
         FROM users u
-        JOIN profile_values pv ON (u.uid = pv.uid)
+        JOIN profile_value pv ON (u.uid = pv.uid)
         JOIN users_roles ur ON (u.uid = ur.uid)
           WHERE
-          pv.fid = %d AND pv.`value` IN('". implode("','", $sections) . '\')' .
+          pv.fid = ':fid' AND pv.`value` IN('". implode("','", $sections) . '\')' .
              "AND u.`status` = 1
-              AND ur.rid = %d";
+              AND ur.rid = ':rid'";
   //TODO default value bij variable_get is onzinnig
-  $res = db_query($sql, variable_get('gigplanning_section', 'profile-sectie'),variable_get('gigplanning_role_bandmembers', 'vaste_speler'));
+  $res = db_query($sql, array(':fid' => variable_get('gigplanning_section', 'profile-sectie'), ':rid' => variable_get('gigplanning_role_bandmembers', 'vaste_speler')));
   if (!$res) {
     drupal_set_message("db error while picking up splelers_id");
   }
@@ -236,7 +250,7 @@ function gp_get_all_players_uid($node) {
     foreach ($invallers as $invaller) {
     if ($invaller['uid']) {
       $spelers_ids[] = $invaller['uid'];
-      //debug - 	    print_r($spelers_ids); // 	drupal_set_message($invaller['uid']);
+      //debug -       print_r($spelers_ids); //   drupal_set_message($invaller['uid']);
     }
   }
   }
@@ -244,12 +258,12 @@ function gp_get_all_players_uid($node) {
 }
 
 function gp_idtoname($uid) {
-  $name = db_result(db_query("SELECT name FROM {users} WHERE uid = %d", $uid));
+  $name = db_result(db_query("SELECT name FROM {users} WHERE uid = ':uid'", array(':uid' => $uid)));
 return $name;
 }
 
 function gp_gp_nametoid($name) {
-  $id = db_result(db_query("SELECT uid FROM {users} WHERE name = '%s'", $name));
+  $id = db_result(db_query("SELECT uid FROM {users} WHERE name = ':name'", array(':name' => $name)));
   return $id;
 }
 
@@ -263,10 +277,11 @@ function gp_gp_nametoid($name) {
 function openstaande_optredens($uid) {
   $sql = "SELECT b.nid
          FROM gp_optredens b JOIN content_type_optreden o ON b.nid = o.nid
-         WHERE b.uid = %d AND b.speel_status = '%s' AND o.field_status_value <> 'geannuleerd' AND o.field_datum_value > NOW()";
-  $res = db_query($sql, $uid, 'geenreactie');
+         WHERE b.uid = ':uid' AND b.speel_status = ':speel_status' AND o.field_status_value <> 'geannuleerd' AND o.field_datum_value > NOW()";
+  $res = db_query($sql, array(':uid' => $uid, ':speel_status' => 'geenreactie'));
   $rows =array();
-  while ($ar = db_fetch_array($res)) {
+  foreach ($res as $ar) {
+    (array)$ar;
     $tenb_node = node_load($ar['nid']);
     array_push($ar, "<a href='/node/" . $ar['nid'] . "'>" . $tenb_node-> title . "</a>");
     unset($ar['nid']);
@@ -296,7 +311,7 @@ function gigplanning_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
 
 /* when node optreden is deleted this function deletes the entries in de the gig database */
 function gp_optreden_delete($node) {
-  $result = db_query("DELETE FROM {gp_optredens} WHERE nid = %d", $node-> nid);
+  $result = db_query("DELETE FROM {gp_optredens} WHERE nid = ':nid'", array(':nid' => $node-> nid));
   if ($result) {
     drupal_set_message('Optreden is tevens verwijderd uit spelers-database');
   }
@@ -356,8 +371,8 @@ function gp_optreden_update(&$node) {
   }
   }
   if (!$verzend) {
-    $sql ="UPDATE content_type_optreden SET field_verz_not_value = '%s' WHERE %d";
-  db_query($sql, "ja",$node ->nid);
+    $sql ="UPDATE content_type_optreden SET field_verz_not_value = ':field_value' WHERE ':nid'";
+  db_query($sql, array(':field_value' => "ja", ':nid' => $node ->nid));
     drupal_set_message(t("No email notifications send for this update"));
   }
   //remove players from db that are not anymore present in giglist
@@ -368,15 +383,15 @@ function gp_optreden_update(&$node) {
 function gp_bezetting_db($nid, $id, $mode) {
   if ($mode == 'insert') {
     $res = db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
-                   VALUES (%d, %d, '%s')", $nid, $id, 'geenreactie');
+                   VALUES (':nid', ':uid', ':speel_status')", array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => 'geenreactie'));
   }
   elseif ($mode == 'edit') {
     // is er al een entry in DB voor deze $id
-  $result = db_result(db_query("SELECT COUNT(bezid) FROM {gp_optredens} WHERE nid = %d AND uid = %d", $nid, $id));
-  if (!$result) {
+    $result = db_result(db_query("SELECT COUNT(bezid) FROM {gp_optredens} WHERE nid = ':nid' AND uid = ':uid'", array(':nid' => $nid, ':uid' => $id)));
+    if (!$result) {
       db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
-                   VALUES (%d, %d, '%s')", $nid, $id, 'geenreactie');
-  }
+                   VALUES (':nid', ':uid', ':speel_status')", array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => 'geenreactie'));
+    }
   }
 }
 
@@ -385,28 +400,29 @@ function gp_bezetting_db($nid, $id, $mode) {
  * not present on the node players list */
 function gp_bezetting_remove_ghosts($node_players_list, $nid) {
   //debug  -   drupal_set_message('checking ghosts');
-  $sql = "SELECT uid FROM {gp_optredens} WHERE nid = %d";
-  $result =  db_query($sql, $nid);
-  while ($row = db_fetch_array($result)) {
-    $db_array[] = $row['uid'];
+  $sql = "SELECT uid FROM {gp_optredens} WHERE nid = ':nid'";
+  $result =  db_query($sql, array(':nid' => $nid));
+  $db_array = array();
+  foreach ($result as $row) {
+    $db_array[] = $row -> uid;
   }
   if ($delete_arr = array_diff($db_array, $node_players_list)) {
     foreach ($delete_arr as $item) {
-    db_query("DELETE FROM {gp_optredens} WHERE nid = %d AND uid = %d", $nid, $item);
-  }
+      db_query("DELETE FROM {gp_optredens} WHERE nid = %d AND uid = %d", $nid, $item);
+    }
   }
 }
 
 function gp_get_status($node_id, $speler_id) {
-  $res = db_fetch_array(db_query("SELECT speel_status FROM {gp_optredens} WHERE nid = %d AND uid = %d", $node_id, $speler_id));
+  $res = db_query("SELECT speel_status FROM {gp_optredens} WHERE nid = ':nid' AND uid = ':uid'", array(':nid' => $node_id, ':uid' => $speler_id))-> fetchAssoc();
   $ret = $res['speel_status'];
   return $ret;
 }
 
 function is_actieve_speler($uid) {
-  $sql = "SELECT pv.`value` FROM profile_values pv JOIN users u ON (pv.uid = u.uid)
+  $sql = "SELECT pv.`value` FROM profile_value pv JOIN users u ON (pv.uid = u.uid)
           WHERE pv.fid = %d AND u.`status` = 1 AND u.uid = %d AND u.`status` = 1";
-  $instr = db_result(db_query($sql, variable_get('gigplanning_section', 'profile-sectie'), $uid));
+  $instr = db_query($sql, variable_get('gigplanning_section', 'profile-sectie'), $uid)-> fetchField();
   //debug - drupal_set_message($instr);
   if ($instr == "Niet-speler") { $instr = "";} //is hack JSJ
   if ($instr) {
@@ -544,8 +560,8 @@ function gigplanning_cron () {
   $today_date_time = date_convert($today, DATA_UNIX, DATA_DATETIME);
   //TODO: oude optredens opruimen
   $sql = "SELECT * FROM {content_type_optreden} WHERE DATE(field_datum_value) > CURDATE()";
-  $res = db_query($sql);
-  while ($res_arr = db_fetch_array($res)) {
+  $res = db_query($sql)-> fetchAssoc();
+  foreach ($res as $res_arr) {
     $ultimate = date_convert($res_arr['field_reageren_value'], DATE_DATETIME, DATE_UNIX);
     $diff = floor(($ultimate - $today) / (60*60*24));
     //debug - echo $diff;
@@ -559,7 +575,7 @@ function gigplanning_cron () {
         }
       }
     }
-  } //end while
+  }
   //nieuwe spelers
 }
 
@@ -599,10 +615,10 @@ function gp_remind_mail($uid, $optreden_id, $diff) {
 
 function gp_select_players_to_remind($optreden_id, $diff) {
   $field = gp_set_db_field($diff);
-  $sql = "SELECT * FROM {gp_optredens} WHERE nid = %d AND speel_status = '%s' AND ". $field ." = 0";
+  $sql = "SELECT * FROM {gp_optredens} WHERE nid = ':nid' AND speel_status = ':speel_status' AND ". $field ." = 0";
  // drupal_set_message($sql);  //debug
-  $res = db_query($sql, $optreden_id, 'geenreactie');
-  while ($res_arr = db_fetch_array($res)) {
+  $res = db_query($sql, array(':nid' => $optreden_id, ':speel_status' => 'geenreactie'))->fetchAssoc();
+  foreach($res as $res_arr) {
     $pl[] = $res_arr['uid'];
   }
   return $pl;
@@ -610,9 +626,9 @@ function gp_select_players_to_remind($optreden_id, $diff) {
 
 function gp_set_reminder_flag($player, $optreden_id, $diff) {
   $field = gp_set_db_field($diff);
-  $sql ="UPDATE {gp_optredens} SET ". $field ." = 1 WHERE nid = %d AND uid = %d";
+  $sql ="UPDATE {gp_optredens} SET ". $field ." = 1 WHERE nid = ':nid' AND uid = ':uid'";
   //drupal_set_message($sql . $optreden_id);
-  $res = db_query($sql, $optreden_id, $player);
+  $res = db_query($sql, array(':nid' => $optreden_id, ':uid' => $player));
 }
 
 function gp_set_db_field($diff) {
@@ -678,18 +694,18 @@ function bezetting3($optreden_id, $style) {
     bez.nid AS nid,
     bez.uid AS uid
         FROM gp_optredens bez
-          JOIN   profile_values pv
+          JOIN   profile_value pv
             ON (bez.uid = pv.uid)
         JOIN users
           ON (pv.uid = users.uid)
-     WHERE pv.`value` = '%s'
-         AND bez.nid = %d
+     WHERE pv.`value` = ':value'
+         AND bez.nid = ':nid'
        AND users.`status` = 1";
-    $result = db_query($sql, $sectie, $optreden_id);
+    $result = db_query($sql, array(':value' => $sectie, ':nid' => $optreden_id))->fetchAssoc;
     $spelers = array();
-    while ($row = db_fetch_array($result)) {
+    foreach ($result as $row) {
       array_push($spelers, $row);
-  }
+    }
     $bezetting3[$sectie] = $spelers;
   }
   return gp_html_bezetting3($bezetting3, $style);
@@ -707,11 +723,11 @@ function bezetting3_arr($optreden_id) {
   bez.speel_status AS speel_status
       FROM gp_optredens bez
       JOIN users ON (bez.uid = users.uid)
-            WHERE bez.nid = %d
+            WHERE bez.nid = ':nid'
         AND users.`status` = 1";
-  $result = db_query($sql, $optreden_id);
+  $result = db_query($sql, array(':nid' => $optreden_id))-fetchAssoc();
   $spelers = array();
-  while ($row = db_fetch_array($result)) {
+  foreach ($result as $row) {
    $spelers[$row['name']] = $row['name'];
   }
   return $spelers;
@@ -723,12 +739,12 @@ function deel_bezetting_arr($optreden_id, $speel_status){
           users.uid AS id
         FROM gp_optredens bez
         JOIN users ON (bez.uid = users.uid)
-          WHERE bez.nid = %d
+          WHERE bez.nid = ':nid'
       AND users.`status` = 1
-      AND bez.speel_status = '%s'";
-  $result = db_query($sql, $optreden_id, $speel_status);
+      AND bez.speel_status = ':speel_status'";
+  $result = db_query($sql, array(':nid' => $optreden_id, ':speel_status' => $speel_status))-> fetchAssoc();
   $spelers = array();
-  while ($row = db_fetch_array($result)) {
+  foreach($result as $row) {
    $spelers[$row['name']] = $row['name'];
   }
   return $spelers;
@@ -738,7 +754,7 @@ function gp_html_bezetting3($bezetting, $style) {
   global $user;
   $podium_var = variable_get('gigplanning_podium_indeling', 0);
   if ($style == 'table') {
-    //debug -  	print_r($bezetting);
+    //debug -    print_r($bezetting);
     $i = 0;
     $output3 = '<div id = "bezetting">';
     foreach ($bezetting as $sectie => $sectie_spelers_arr) {
@@ -806,13 +822,13 @@ function gp_html_bezetting3($bezetting, $style) {
 function _gp_sectie_spelers($sectie_naam) {
   $sql = "SELECT u.name AS user_name
             FROM users u
-              JOIN profile_values pv
+              JOIN profile_value pv
                 ON (u.uid = pv.uid)
          JOIN users_roles ur
         ON (u.uid = ur.uid)
-             WHERE pv.value = '%s' AND u.status = %d AND ur.rid = %d";
-  $result = db_query($sql, $sectie_naam, 1, variable_get('gigplanning_role_bandmembers',''));
-  while ($row = db_fetch_array($result)) {
+             WHERE pv.value = ':value' AND u.status = ':status' AND ur.rid = ':rid";
+  $result = db_query($sql, $sectie_naam, 1, variable_get('gigplanning_role_bandmembers',''))-> fetchAssoc();
+  foreach($result as $row) {
     $rows[] = $row['user_name'];
   }
   //debug -   print_r($rows);
@@ -857,8 +873,8 @@ function gp_optreden_set_stage($nid, $uid, $cur_state) {
     $new_state = 1;
   $stage_text = t("On Stage");
   }
-  $sql = "UPDATE {gp_optredens} SET on_stage = %d WHERE nid = %d AND uid = %d";
-  db_query($sql, $new_state, $nid, $uid);
+  $sql = "UPDATE {gp_optredens} SET on_stage = ':on_stage' WHERE nid = ':nid' AND uid = ':uid";
+  db_query($sql, array(':on_stage' => $new_state, ':nid' => $nid, ':uid' => $uid));
   print drupal_to_js(
     array(
       'id' => $uid,
@@ -875,10 +891,10 @@ function onstage_widget($nid, $uid, $cur_state) {
 /* returns all sections */
 function gp_get_all_sections() {
   $fid = variable_get('gigplanning_section', NULL);
-  $sql = "SELECT DISTINCT value FROM {profile_values} WHERE fid = %d";
-  $result = db_query($sql, $fid);
+  $sql = "SELECT DISTINCT value FROM {profile_value} WHERE fid = ':fid'";
+  $result = db_query($sql, array(':fid' => $fid));
   $sections = array();
-  while ($row = db_fetch_array($result)) {
+  while ($row = $result-> fetchAssoc()) {
     $sections[$row['value']] = $row['value'];
   }
   return $sections;
@@ -887,12 +903,12 @@ function gp_get_all_sections() {
 function gp_get_all_sections_full() {
   $fid = variable_get('gigplanning_section', NULL);
   $sql =  "SELECT DISTINCT pv.`value`, gss.id, gss.section_size AS size
-           FROM profile_values pv
+           FROM profile_value pv
            LEFT OUTER JOIN gp_section_size gss ON (pv.`value` = gss.section_name)
-           WHERE pv.fid = %d";
-  $result = db_query($sql, $fid);
-  $sections = array();
-  while ($row = db_fetch_array($result)) {
+           WHERE pv.fid = ':fid'";
+  $result = db_query($sql, array(':fid' => $fid));
+  $rows = array();
+  while ($row = $result-> fetchAssoc()) {
     $rows[] = $row;
   }
   return $rows;
@@ -900,8 +916,8 @@ function gp_get_all_sections_full() {
 
 /* returns sections (array) to include per node */
 function gp_include_sections($nid) {
-  $sql = "SELECT flex_sections FROM {gp_flex_sections} WHERE nid = %d";
-  $result = db_result(db_query($sql, $nid));
+  $sql = "SELECT flex_sections FROM {gp_flex_sections} WHERE nid = ':nid'";
+  $result = db_query($sql, array(':nid' => $nid))-> fetchField();
   if ($result) {
     // debug - drupal_set_message($result);
     $sections = unserialize($result);
@@ -935,9 +951,10 @@ function gigplanning_requirements($phase) {
     $req['gp'] = array(
       'value' => $sync_info
     );
-  }
+
   $req['gp']['title'] = 'Gigplanning';
   $req['gp']['severity'] = $sev;
+  }
   return $req;
 }
 
@@ -951,12 +968,12 @@ function gigplanning_sync_sections() {
 }
 
 function _gp_sync_section($section) {
-  $sql = "INSERT INTO {gp_section_size} (section_name, section_size) VALUES ('%s', %d)";
-  db_query($sql, $section['value'], 0);
+  $sql = "INSERT INTO {gp_section_size} (section_name, section_size) VALUES (':name', ':size')";
+  db_query($sql, array(':name' => $section['value'], ':size' => 0));
 }
 
 function gp_sectie_size($section) {
-  $id = db_result(db_query("SELECT id FROM {gp_section_size} WHERE section_name = '%s'", $section));
+  $id = db_query("SELECT id FROM {gp_section_size} WHERE section_name = ':name'", array(':name' => $section))-> fetchField();
   return variable_get('gigplanning_section_size_' . $id, 0);
 }
 
@@ -1017,18 +1034,17 @@ function gigplanning_block($op = 'list', $delta = 0, $edit = array()) {
                 LEFT JOIN votingapi_cache vote ON node.nid = vote.content_id
         JOIN content_type_voorstel voorstel ON (node.nid = voorstel.nid)
                 WHERE (node.status = 1)
-          AND (node.type in ('%s'))
-            AND (vote.`function` = '%s')
-            AND ((voorstel.field_status_voorstel_value IS NULL) OR (voorstel.field_status_voorstel_value = '%$'))
-                ORDER BY Score DESC LIMIT %d";
+          AND (node.type in (':type'))
+            AND (vote.`function` = ':function')
+            AND ((voorstel.field_status_voorstel_value IS NULL) OR (voorstel.field_status_voorstel_value = ':value'))
+                ORDER BY Score DESC LIMIT ':limit'";
 
 
-        $result = db_query($sql, 'voorstel', 'sum', $num_posts, 'proposal');
+        $result = db_query($sql, array(':type' => 'voorstel', ':function' => 'sum', ':value' => 'proposal', ':limit' => $num_posts))-> fetchAssoc();
         $destination = drupal_get_destination();
         $data = array();
-        while ($row = db_fetch_array($result)) {
-          $rows[] =
-        l($row['nummer'] . '(' . $row['score'] . ')', 'node/'. $row['nid']);
+        foreach ($result as $row) {
+          $rows[] = l($row['nummer'] . '(' . $row['score'] . ')', 'node/'. $row['nid']);
         }
         $block['subject'] = t('Top proposals');
         // We theme our array of links as an unordered list.
@@ -1061,8 +1077,8 @@ function gigplanning_users_maintenance() {
 }
 
 function _gp_user_maint($uid, $nid) {
-  $sql = "SELECT bezid FROM gp_optredens WHERE uid =%d AND nid =%d";
-  $bezid = db_result(db_query($sql, $uid, $nid));
+  $sql = "SELECT bezid FROM gp_optredens WHERE uid = ':uid' AND nid =':nid'";
+  $bezid = db_query($sql, array(':uid' => $uid, ':nid' => $nid))-> fetchField();
   if (!$bezid) {
     //we have to enter this into gp_optredens
     gp_add_player_to_gig($uid, $nid);
@@ -1077,8 +1093,8 @@ function _gp_user_maint($uid, $nid) {
 function gp_get_current_gigs() {
   $gigs = array();
   $sql = "SELECT nid FROM {content_type_optreden} WHERE DATE(field_datum_value) > CURDATE()";
-  $result = db_query($sql);
-  while ($row = db_fetch_array($result)) {
+  $result = db_query($sql)-> fetchAssoc();
+  foreach ($result as $row) {
     $gigs[] = $row['nid'];
   }
   return $gigs;
@@ -1087,20 +1103,19 @@ function gp_get_current_gigs() {
 //returns an array with the uids of current full-time players
 function gp_get_active_players_list() {
   $player_ids = array();
-  $sql = '
+  $sql = "
   SELECT users.uid AS users_uid
   FROM users users
   INNER JOIN users_roles users_roles ON users.uid = users_roles.uid
-  WHERE users_roles.rid = %d AND users.status = %d';
-  $result = db_query($sql, variable_get(gigplanning_role_bandmembers, NULL), 1);
-
-  while ($row = db_fetch_array($result)) {
+  WHERE users_roles.rid = ':rid' AND users.status = ':status'";
+  $result = db_query($sql, array(':rid' => variable_get(gigplanning_role_bandmembers, NULL), ':status' => 1));
+  foreach($result as $row) {
     $player_ids[] = $row['users_uid'];
   }
   return $player_ids;
 }
 
 function gp_add_player_to_gig($uid, $nid) {
-  $sql = "INSERT INTO gp_optredens (nid, uid, speel_status) VALUES (%d, %d, '%s')";
-  db_query($sql, $nid, $uid, 'geenreactie');
+  $sql = "INSERT INTO gp_optredens (nid, uid, speel_status) VALUES (':nid', ':uid', ':speel_status')";
+  db_query($sql, array(':nid' => $nid, ':uid' => $uid, ':speel_status' => 'geenreactie'));
 }

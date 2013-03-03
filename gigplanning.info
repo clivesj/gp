@@ -4,5 +4,5 @@ description = Gigplanning to manage your band
 package = "Gigplanning"
 stylesheets[all][] = gigplanning.css
 scripts[] = /misc/tableheader.js
-version = "6.x-1.2"
-core = "6.x"
+version = "7.x-0.1"
+core = "7.x"
