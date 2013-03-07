@@ -435,8 +435,8 @@ function gp_get_status($node_id, $speler_id) {
 
 function is_actieve_speler($uid) {
   $sql = "SELECT pv.`value` FROM profile_value pv JOIN users u ON (pv.uid = u.uid)
-          WHERE pv.fid = %d AND u.`status` = 1 AND u.uid = %d AND u.`status` = 1";
-  $instr = db_query($sql, variable_get('gigplanning_section', 'profile-sectie'), $uid)-> fetchField();
+          WHERE pv.fid = :fid AND u.`status` = 1 AND u.uid = :uid AND u.`status` = 1";
+  $instr = db_query($sql, array(':fid' => variable_get('gigplanning_section', 'profile-sectie'), ':uid' => $uid))-> fetchField();
   //debug - drupal_set_message($instr);
   if ($instr == "Niet-speler") { $instr = "";} //is hack JSJ
   if ($instr) {
@@ -1021,6 +1021,7 @@ function _gp_gig_table_get_variables($nid) {
   global $user;
   $gp_user_data = _gp_user_data($user-> uid);
   $variables = array();
+  $variables['nid'] = $nid;
   $variables['podium'] = variable_get('gigplanning_podium_indeling', 0);
   // secties ophalen
   $secties = _gp_secties(FALSE);
@@ -1040,6 +1041,49 @@ function _gp_gig_table_get_variables($nid) {
 }
 
 function theme_gp_gig_table($variables) {
+  global $user;
+  $uid = $user-> uid;
+  //Zet reactiebalk in $output_rb
+  if (!is_actieve_speler($uid)) {
+    $output_rb = '<span class="reactie-balk-text">Geen actieve speler</span>';
+  }
+  else {
+    $node_id = $variables['nid'];
+    $optreden_status = gp_get_status($node_id, $uid);
+    $maybe_option = variable_get('gigplanning_maybe_option', 1);
+    $maybe_link_none =  l(t('Maybe'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/vraagteken', array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'reactie-buttons-button', 'style' => 'display:none;'))) . '</div>';
+    $maybe_link      = l(t('Maybe'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/vraagteken', array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'reactie-buttons-button' ))) . '</div>';
+    $yes_link_display_none = l(t('Yes'), 'optreden/changestatus/'. $node_id .'/'. $uid .'/ja', array('attributes' => array('id' => 'reactie-balk-ja',  'class' => 'reactie-buttons-button','style' => 'display:none;')));
+    $yes_link = l(t('Yes'), 'optreden/changestatus/'. $node_id .'/'. $uid .'/ja', array('attributes' => array('id' => 'reactie-balk-ja', 'class' => 'reactie-buttons-button')));
+    $no_link_display_none = l(t('No'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/nee', array('attributes' => array('id' => 'reactie-balk-nee', 'style' => 'display:none;', 'class' => 'reactie-buttons-button' )));
+    $no_link = l(t('No'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/nee', array('attributes' => array('id' => 'reactie-balk-nee', 'class' => 'reactie-buttons-button' )));
+    switch ($optreden_status) {
+      case 'ja':
+        $ret1 = '<span class = "reactie-balk-text">Je hebt je al opgegeven voor dit optreden</span>';
+        $ret2 = '<div id = "reactie-buttons">'.
+            $yes_link_display_none . $no_link_display_none . ($maybe_option ? $maybe_link_none : '') . '</div>';
+        break;
+      case 'nee':
+        $ret1 = '<span class = "reactie-balk-text">Je doet niet mee. Je kunt dit indien gewenst alsnog aanpassen</span>';
+        $ret2 = '<div id = "reactie-buttons">'.
+            $yes_link .  $no_link_display_none . ($maybe_option ? $maybe_link : '') . '</div>';
+        break;
+      case 'vraagteken':
+        $ret1 = '<span class = "reactie-balk-text">Er staat voor een vraagteken voor dit optreden. Je kunt dit indien gewenst alsnog aanpassen</span>';
+        $ret2 = '<div id = "reactie-buttons">'.
+            $yes_link . $no_link . ($maybe_option ? $maybe_link_none : '') . '</div>';
+        break;
+      case 'geenreactie':
+        $ret1 = '<span class = "reactie-balk-text">Je hebt nog niet gereageerd. Gaarne dit alsnog doen</span>';
+        $ret2 = '<div id = "reactie-buttons">'.
+            $yes_link . $no_link . ($maybe_option ? $maybe_link : '') . '</div>';
+        break;
+      default:
+        $ret1 = "default switch - case";
+        break;
+    }
+    $output_rb = $ret1 . $ret2 . "<div class='clear-both'></div>";
+  }
   //print_r($variables); exit;
   $sections = $variables['sections'];
   $podium = $variables['podium'];
@@ -1094,7 +1138,7 @@ function theme_gp_gig_table($variables) {
   $output3 .= '</div>'; // div col2
   $output3 .= '<div class="clear-both"></div>';
   $output3 .= '</div>'; // div bezetting */
-  return $output3;
+  return $output_rb . $output3;
 }
 
 function _gp_section_size($section) {

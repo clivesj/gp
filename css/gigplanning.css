@@ -111,17 +111,17 @@ div.td-img {text-align:center;}
 /* ------------------------------------------------*/
 #bezetting { font-weight:bold; margin-top: 2px; }
 #bezetting .div { border:#666 thick;}
-#bezetting .sectie-head { width:100%; text-align:center; background-color:#FF9; border-bottom:  #FC3 2px solid; padding: 2px 0px;}
+#bezetting .sectie-head { width:100%; text-align:center; background-color:rgb(203,221,214); border-bottom:  rgb(70,67,57) 2px solid; padding: 2px 0px;}
 #bezetting .row { width: 100%; /*border: #999 1px solid;*/}
-#col1, #col2, #col3, #col4 {width:24%; float: left; border: #999 1px solid; border-right: #999 3px solid;}
-.naam-label { width:75%; }
+#col1, #col2, #col3, #col4 {width:24%; float: left; border: #999 1px solid;} /*border-right: #999 3px solid;}*/
+.naam-label { width:72%; }
 .ja { background-color: #0C3;}
 .nee { background-color:#F33; }
 .geenreactie { background-color: #FFF;}
 .vraagteken {background-color: #999999; }
-.ja, .nee, .geenreactie, .vraagteken { border-left: #999 1px solid; width: 24%; }
+.ja, .nee, .geenreactie, .vraagteken { border-left: #999 1px solid; width: 13%; }
 .naam-label  { float: left; padding: 2px 8px; border-bottom: #999 1px solid;}
-.ja, .nee, .geenreactie, .vraagteken { float: right; padding: 2px 8px; border-bottom: #999 1px solid;}
+.ja, .nee, .geenreactie, .vraagteken { float: right; padding: 2px 8px;} /*border-bottom: #999 1px solid;} */
 /*.naam-label, .ja, .nee, .geenreactie, .sectie-head { }*/
 /*--------------------------------------------------*/
 .clear-both { clear: both;}
