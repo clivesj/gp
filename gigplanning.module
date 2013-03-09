@@ -443,50 +443,6 @@ function is_actieve_speler($uid) {
     return TRUE; } else { return FALSE; }
 }
 
-function reactie_balk_link($node_id, $uid) {
-  if (!is_actieve_speler($uid)) {
-    $output = '<span class="reactie-balk-text">Geen actieve speler</span>';
-  }
-  else {
-    $optreden_status = gp_get_status($node_id, $uid);
-    $maybe_option = variable_get(gigplanning_maybe_option, 1);
-    $maybe_link_none =  l(t('Maybe'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/vraagteken', array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'reactie-buttons-button', 'style' => 'display:none;'))) . '</div>';
-    $maybe_link      = l(t('Maybe'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/vraagteken', array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'reactie-buttons-button' ))) . '</div>';
-    $yes_link_display_none = l(t('Yes'), 'optreden/changestatus/'. $node_id .'/'. $uid .'/ja', array('attributes' => array('id' => 'reactie-balk-ja',  'class' => 'reactie-buttons-button','style' => 'display:none;')));
-    $yes_link = l(t('Yes'), 'optreden/changestatus/'. $node_id .'/'. $uid .'/ja', array('attributes' => array('id' => 'reactie-balk-ja', 'class' => 'reactie-buttons-button')));
-    $no_link_display_none = l(t('No'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/nee', array('attributes' => array('id' => 'reactie-balk-nee', 'style' => 'display:none;', 'class' => 'reactie-buttons-button' )));
-    $no_link = l(t('No'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/nee', array('attributes' => array('id' => 'reactie-balk-nee', 'class' => 'reactie-buttons-button' )));
-
-      switch ($optreden_status) {
-        case 'ja':
-          $ret1 = '<span class = "reactie-balk-text">Je hebt je al opgegeven voor dit optreden</span>';
-      $ret2 = '<div id = "reactie-buttons">'.
-        $yes_link_display_none . $no_link_display_none . ($maybe_option ? $maybe_link_none : '') . '</div>';
-    break;
-      case 'nee':
-        $ret1 = '<span class = "reactie-balk-text">Je doet niet mee. Je kunt dit indien gewenst alsnog aanpassen</span>';
-    $ret2 = '<div id = "reactie-buttons">'.
-            $yes_link .  $no_link_display_none . ($maybe_option ? $maybe_link : '') . '</div>';
-      break;
-      case 'vraagteken':
-        $ret1 = '<span class = "reactie-balk-text">Er staat voor een vraagteken voor dit optreden. Je kunt dit indien gewenst alsnog aanpassen</span>';
-    $ret2 = '<div id = "reactie-buttons">'.
-             $yes_link . $no_link . ($maybe_option ? $maybe_link_none : '') . '</div>';
-        break;
-      case 'geenreactie':
-        $ret1 = '<span class = "reactie-balk-text">Je hebt nog niet gereageerd. Gaarne dit alsnog doen</span>';
-    $ret2 = '<div id = "reactie-buttons">'.
-          $yes_link . $no_link . ($maybe_option ? $maybe_link : '') . '</div>';
-        break;
-    default:
-        $ret1 = "default switch - case";
-        break;
-    }
-  $output = $ret1 . $ret2 ."<div class='clear-both'></div>";
-  }
-  return $output;
-}
-
 //TODO rechten niet naar sario maar los instelbaar (access)
 function sario_link($node_id) {
   global $user;
@@ -968,9 +924,9 @@ function gigplanning_block_view($delta = '') {
     global $user;
     $website = variable_get('gp_band_website', 'http://www.gigplanning.com');
     $name = variable_get('gp_band_name', 'Gigplanning');
-    $output = t('This is the Gigplanning website for :band_name Please select this link for our public site', array(':band_name' => $name));
+    $output = t('This is the Gigplanning website for %band_name.<br />It is accessible for band members only. Please select <a href = @link>this link</a> to visit our public site', array('%band_name' => $name, '@link' => $website ));
     if (is_actieve_speler($user-> uid)) {
-      $output = openstaande_optredens($user-> uid);
+      //$output = openstaande_optredens($user-> uid);
     }
     $block['subject'] = t('Welcome to Gigplanning');
     $block['content'] = $output;
@@ -1049,16 +1005,18 @@ function gp_add_player_to_gig($uid, $nid) {
  */
 function _gp_gig_table_get_variables($nid) {
   global $user;
-  $gp_user_data = _gp_user_data($user-> uid);
   $variables = array();
+  $gp_user_data = _gp_user_data($user-> uid);
+  $variables['user_section'] = $gp_user_data['section'];
   $variables['nid'] = $nid;
   $variables['podium'] = variable_get('gigplanning_podium_indeling', 0);
+  $variables['maybe'] = variable_get('gigplanning_maybe_option', 1);
   // secties ophalen
   $secties = _gp_secties(FALSE);
   foreach ($secties as $sectie) {
     $variables['sections'][$sectie]['size'] = _gp_section_size($sectie);          // size of a section
     // set data if this section is current player's section
-    if ($gp_user_data['section'] == $sectie) {
+    if ($variables['user_section'] == $sectie) {
       $variables['sections'][$sectie]['is_players_section'] = TRUE;
     }
     else {
@@ -1067,46 +1025,48 @@ function _gp_gig_table_get_variables($nid) {
     $players = _gp_gig_data($sectie, $nid);
     $variables['sections'][$sectie]['players'] = $players;
   }
-  return $variables; //gp_html_bezetting3($bezetting3, $style);
+  return $variables;
 }
 
 function theme_gp_gig_table($variables) {
+  //print_r($variables);exit;
   global $user;
   $uid = $user-> uid;
+
   //Zet reactiebalk in $output_rb
   if (!is_actieve_speler($uid)) {
     $output_rb = '<span class="reactie-balk-text">Geen actieve speler</span>';
   }
   else {
+    $maybe = $variables['maybe'];
     $node_id = $variables['nid'];
-    $optreden_status = gp_get_status($node_id, $uid);
-    $maybe_option = variable_get('gigplanning_maybe_option', 1);
+    $speel_status = $variables['sections'][$variables['user_section']]['players'][$uid]['speel_status'];
     $maybe_link_none =  l(t('Maybe'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/vraagteken', array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'reactie-buttons-button', 'style' => 'display:none;'))) . '</div>';
     $maybe_link      = l(t('Maybe'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/vraagteken', array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'reactie-buttons-button' ))) . '</div>';
     $yes_link_display_none = l(t('Yes'), 'optreden/changestatus/'. $node_id .'/'. $uid .'/ja', array('attributes' => array('id' => 'reactie-balk-ja',  'class' => 'reactie-buttons-button','style' => 'display:none;')));
     $yes_link = l(t('Yes'), 'optreden/changestatus/'. $node_id .'/'. $uid .'/ja', array('attributes' => array('id' => 'reactie-balk-ja', 'class' => 'reactie-buttons-button')));
     $no_link_display_none = l(t('No'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/nee', array('attributes' => array('id' => 'reactie-balk-nee', 'style' => 'display:none;', 'class' => 'reactie-buttons-button' )));
     $no_link = l(t('No'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/nee', array('attributes' => array('id' => 'reactie-balk-nee', 'class' => 'reactie-buttons-button' )));
-    switch ($optreden_status) {
+    switch ($speel_status) {
       case 'ja':
         $ret1 = '<span class = "reactie-balk-text">Je hebt je al opgegeven voor dit optreden</span>';
         $ret2 = '<div id = "reactie-buttons">'.
-            $yes_link_display_none . $no_link_display_none . ($maybe_option ? $maybe_link_none : '') . '</div>';
+            $yes_link_display_none . $no_link_display_none . ($maybe ? $maybe_link_none : '') . '</div>';
         break;
       case 'nee':
         $ret1 = '<span class = "reactie-balk-text">Je doet niet mee. Je kunt dit indien gewenst alsnog aanpassen</span>';
         $ret2 = '<div id = "reactie-buttons">'.
-            $yes_link .  $no_link_display_none . ($maybe_option ? $maybe_link : '') . '</div>';
+            $yes_link .  $no_link_display_none . ($maybe ? $maybe_link : '') . '</div>';
         break;
       case 'vraagteken':
         $ret1 = '<span class = "reactie-balk-text">Er staat voor een vraagteken voor dit optreden. Je kunt dit indien gewenst alsnog aanpassen</span>';
         $ret2 = '<div id = "reactie-buttons">'.
-            $yes_link . $no_link . ($maybe_option ? $maybe_link_none : '') . '</div>';
+            $yes_link . $no_link . ($maybe ? $maybe_link_none : '') . '</div>';
         break;
       case 'geenreactie':
         $ret1 = '<span class = "reactie-balk-text">Je hebt nog niet gereageerd. Gaarne dit alsnog doen</span>';
         $ret2 = '<div id = "reactie-buttons">'.
-            $yes_link . $no_link . ($maybe_option ? $maybe_link : '') . '</div>';
+            $yes_link . $no_link . ($maybe ? $maybe_link : '') . '</div>';
         break;
       default:
         $ret1 = "default switch - case";
@@ -1194,7 +1154,7 @@ function _gp_gig_data($section, $gig_id) {
   $result = db_query($sql, array(':value' => $section, ':nid' => $gig_id));
   $players = array();
   while ($row = $result-> fetchAssoc()) {
-    $players[] = $row;
+    $players[$row['uid']] = $row;
   }
   return $players;
 }
