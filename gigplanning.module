@@ -890,62 +890,92 @@ function gp_count($needle, $haystack) {
   return $count;
 }
 
-function gigplanning_block($op = 'list', $delta = 0, $edit = array()) {
-  switch ($op) {
-    case 'list':
-      $blocks[0]['info'] = t('Top Proposals');
-      $blocks[0]['cache'] = BLOCK_NO_CACHE;
-      return $blocks;
-    case 'configure':
-      // Only in block 0 (the Pending comments block) can one
-      // set the number of comments to display.
-      $form = array();
-      if ($delta == 0) {
-        $form['gp_top_proposals_num'] = array(
-          '#type' => 'textfield',
-          '#title' => t('Number of pending comments to display'),
-          '#default_value' => variable_get('gigplanning_top_proposals_num', 8),
-        );
-      }
-      return $form;
-    case 'save':
-      if ($delta == 0) {
-        variable_set('gigplanning_top_proposals_num', (int)$edit['gp_top_proposals_num']);
-      }
-    break;
-    case 'view':
-    if ($delta == 0) {
-        $num_posts = variable_get('gp_top_proposals_num', 8);
-        // Query the database for data
-      $sql = "SELECT
-              node.nid AS nid,
-          RPAD(LEFT(node.title, 24),33,'.') AS nummer, vote.`value` AS score,
-          voorstel.field_status_voorstel_value AS v_status
-                FROM node node
-                INNER JOIN users users ON node.uid = users.uid
-                LEFT JOIN votingapi_cache vote ON node.nid = vote.content_id
-        JOIN content_type_voorstel voorstel ON (node.nid = voorstel.nid)
-                WHERE (node.status = 1)
-          AND (node.type in (':type'))
-            AND (vote.`function` = ':function')
-            AND ((voorstel.field_status_voorstel_value IS NULL) OR (voorstel.field_status_voorstel_value = ':value'))
-                ORDER BY Score DESC LIMIT ':limit'";
+/**
+ * Implements hook_block_info().
+ */
+function gigplanning_block_info() {
+  $blocks['top_propasals'] = array(
+    'info' => t('Top Proposals'),
+    'visibility' => BLOCK_VISIBILITY_LISTED,
+    'pages' => '<front>',
+  );
+  $blocks['welkom'] = array(
+      'info' => t('Welcome to Gigplanning'),
+      'visibility' => BLOCK_VISIBILITY_LISTED,
+      'pages' => '<front>',
+      'weight' => -50,
+  );
+  return $blocks;
+}
 
-
-        $result = db_query($sql, array(':type' => 'voorstel', ':function' => 'sum', ':value' => 'proposal', ':limit' => $num_posts))-> fetchAssoc();
-        $destination = drupal_get_destination();
-        $data = array();
-        foreach ($result as $row) {
-          $rows[] = l($row['nummer'] . '(' . $row['score'] . ')', 'node/'. $row['nid']);
-        }
-        $block['subject'] = t('Top proposals');
-        // We theme our array of links as an unordered list.
-        $block['content'] = theme('item_list', $rows, NULL, 'ol') . '<p><a href= "voorstellen">Overzicht&nbsp;voorstellen &raquo;</a>';
-      }
-      elseif ($delta == 1) {
-      }
-    return $block;
+/**
+ * Implements hook_block_configure().
+ */
+function gigplanning_block_configure($delta = '') {
+  $form = array();
+  if($delta == 'top_proposals' ) {
+   $form['top_proposals_num'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Number proposals to display'),
+      '#default_value' => variable_get('gigplanning_top_proposals_num', 8),
+      //'#options' =>,
+    );
   }
+  return $form;
+}
+
+/**
+ * Implements hook_block_save().
+ */
+function gigplanning_block_save($delta = '', $edit = array()) {
+  if ($delta == 'top_proposals') {
+    variable_set('gigplanning_top_proposals_num', (int)$edit['gp_top_proposals_num']);
+  }
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function gigplanning_block_view($delta = '') {
+  $block = array();
+  if ($delta == 'top_proposals') {
+    $num_posts = variable_get('gp_top_proposals_num', 8);
+    $sql = "SELECT
+      node.nid AS nid,
+      RPAD(LEFT(node.title, 24),33,'.') AS nummer, vote.`value` AS score,
+      voorstel.field_status_voorstel_value AS v_status
+      FROM node node
+      INNER JOIN users users ON node.uid = users.uid
+      LEFT JOIN votingapi_cache vote ON node.nid = vote.content_id
+      JOIN content_type_voorstel voorstel ON (node.nid = voorstel.nid)
+      WHERE (node.status = 1)
+      AND (node.type in (':type'))
+      AND (vote.`function` = ':function')
+      AND ((voorstel.field_status_voorstel_value IS NULL) OR (voorstel.field_status_voorstel_value = ':value'))
+      ORDER BY Score DESC LIMIT ':limit'";
+    $result = db_query($sql, array(':type' => 'voorstel', ':function' => 'sum', ':value' => 'proposal', ':limit' => $num_posts))-> fetchAssoc();
+    $destination = drupal_get_destination();
+    $data = array();
+    foreach ($result as $row) {
+      $rows[] = l($row['nummer'] . '(' . $row['score'] . ')', 'node/'. $row['nid']);
+    }
+    $block['subject'] = t('Top proposals');
+    // We theme our array of links as an unordered list.
+    $block['content'] = theme('item_list', $rows, NULL, 'ol') . '<p><a href= "voorstellen">Overzicht&nbsp;voorstellen &raquo;</a>';
+  }
+
+  if ($delta == 'welkom') {
+    global $user;
+    $website = variable_get('gp_band_website', 'http://www.gigplanning.com');
+    $name = variable_get('gp_band_name', 'Gigplanning');
+    $output = t('This is the Gigplanning website for :band_name Please select this link for our public site', array(':band_name' => $name));
+    if (is_actieve_speler($user-> uid)) {
+      $output = openstaande_optredens($user-> uid);
+    }
+    $block['subject'] = t('Welcome to Gigplanning');
+    $block['content'] = $output;
+  }
+  return $block;
 }
 
 /* Amount of gigs this year */
