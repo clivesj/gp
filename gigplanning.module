@@ -201,18 +201,11 @@ function gp_optreden_changestatus($optreden_id, $speler_id, $new_status) {
   );
 }
 
-function gp_get_user_object($player_id) {
-  $sql = "SELECT * FROM {users} where uid = ':uid'";
-  $res = db_query($sql, array(':uid' => $player_id));
-  $plobject = db_fetch_object($res);
-  return $plobject;
-}
-
 /*
  * pv.fid bevat de waarde voor "Sectie"
  * $nid, nid to check which players to exclude from gig
  */
-function gp_get_all_players_uid($node) {
+function _gp_get_all_players_uid($node) {
   //debug -  print_r($node);
   // get all sections
   $sections = gp_get_all_sections();
@@ -288,109 +281,103 @@ function gp_gp_nametoid($name) {
  */
 
 
-function openstaande_optredens($uid) {
+function _gp_openstaande_optredens($uid) {
   $sql = "SELECT b.nid
-         FROM gp_optredens b JOIN content_type_optreden o ON b.nid = o.nid
-         WHERE b.uid = ':uid' AND b.speel_status = ':speel_status' AND o.field_status_value <> 'geannuleerd' AND o.field_datum_value > NOW()";
+         FROM {gp_optredens} b JOIN {content_type_optreden} o ON b.nid = o.nid
+         WHERE b.uid = :uid AND b.speel_status = :speel_status AND o.field_status_value <> 'geannuleerd' AND o.field_datum_value > NOW()";
   $res = db_query($sql, array(':uid' => $uid, ':speel_status' => 'geenreactie'));
-  $rows =array();
-  foreach ($res as $ar) {
-    (array)$ar;
-    $tenb_node = node_load($ar['nid']);
-    array_push($ar, "<a href='/node/" . $ar['nid'] . "'>" . $tenb_node-> title . "</a>");
-    unset($ar['nid']);
-    $rows[] = $ar;
+  $rows = array();
+  $output = "<h3>Listed below are the gigs which are open for this account</h2><ul>";
+  while ($ar = $res-> fetchAssoc()) {
+    $gig = node_load($ar['nid']);
+    $output .= "<li><a href='/node/" . $ar['nid'] . "'>" . $gig-> title . "</a></li>";
   }
-  $output = theme('table', NULL, $rows, NULL,  "Hieronder staan de optredens waarop je nog eventueel moet reageren. Gelieve dat z.s.m. te doen.");
+  $output .= "</ul>";
 return $output;
 }
 
-function gigplanning_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+/**
+ * Implements hook_node_insert().
+ */
+function gigplanning_node_insert($node) {
   if ($node-> type == "optreden") {
-    switch ($op) {
-      case 'insert':
-        gp_optreden_insert($node);
-        break;
-      case 'update':
-        gp_optreden_update($node);
-        break;
-      case 'view':
-        break;
-      case 'delete':
-        gp_optreden_delete($node);
-      break;
+    //debug - print_r($node);
+    $ids = _gp_get_all_players_uid($node);
+    global $base_url;
+    //opbouw mail
+    $params['optreden_titel'] = $node-> title;
+    $params['optreden'] .= "Optreden      : " . $node-> title ."\n\n";
+    $params['optreden'] .= "Datum optreden: " . substr($node-> field_datum[0]['value'], 0, 10) ."\n";
+    $params['optreden'] .= "Reageren voor : " . substr($node-> field_reageren[0]['value'], 0, 10) ."\n";
+    $params['optreden'] .= "Tijd          : " . $node-> field_tijd[0]['value'] ."\n";
+    $params['optreden'] .= "Bijzonderheden:\n" . $node-> field_bijzonderheden[0]['value'] . "\n\n";
+    $params['optreden'] .= "Overige gegevens zijn nog niet bekend cq. beschikbaar op de website\n";
+    $params['node_url'] .= $base_url . "/node/". $node-> nid;
+    $params['afz'] = gp_idtoname($node-> uid);
+    //$account = gp_get_user_object($id);
+    //$params['account'] = $account;
+    foreach ($ids as $key => $id) {
+      //gegevens opslaan in tabel voor gegevens bezetting to DB
+      gp_bezetting_db($node-> nid, $id, 'insert');
+      $account = user_load($id);
+      $params['account'] = $account;
+      drupal_mail('gigplanning', 'nwe_optreden', $account->mail, user_preferred_language($account), $params);
     }
   }
 }
 
-/* when node optreden is deleted this function deletes the entries in de the gig database */
-function gp_optreden_delete($node) {
-  $result = db_query("DELETE FROM {gp_optredens} WHERE nid = ':nid'", array(':nid' => $node-> nid));
-  if ($result) {
-    drupal_set_message('Optreden is tevens verwijderd uit spelers-database');
-  }
-  else {
-    drupal_set_message('Optreden niet verwijderd uit spelers-database');
-  }
-}
-
-function gp_optreden_insert($node) {
-  //debug - print_r($node);
-  $ids = gp_get_all_players_uid($node);
-  global $base_url;
-  //opbouw mail
-  $params['optreden_titel'] = $node-> title;
-  $params['optreden'] .= "Optreden      : " . $node-> title ."\n\n";
-  $params['optreden'] .= "Datum optreden: " . substr($node-> field_datum[0]['value'], 0, 10) ."\n";
-  $params['optreden'] .= "Reageren voor : " . substr($node-> field_reageren[0]['value'], 0, 10) ."\n";
-  $params['optreden'] .= "Tijd          : " . $node-> field_tijd[0]['value'] ."\n";
-  $params['optreden'] .= "Bijzonderheden:\n" . $node-> field_bijzonderheden[0]['value'] . "\n\n";
-  $params['optreden'] .= "Overige gegevens zijn nog niet bekend cq. beschikbaar op de website\n";
-  $params['node_url'] .= $base_url . "/node/". $node-> nid;
-  $params['afz'] = gp_idtoname($node-> uid);
-  $account = gp_get_user_object($id);
-  $params['account'] = $account;
-  foreach ($ids as $key => $id) {
-    //gegevens opslaan in tabel voor gegevens bezetting to DB
-    gp_bezetting_db($node-> nid, $id, 'insert');
-    $account = gp_get_user_object($id);
-    $params['account'] = $account;
-    drupal_mail('gigplanning', 'nwe_optreden', $account->mail, user_preferred_language($account), $params);
-  }
-}
-
-function gp_optreden_update(&$node) {
-  if ($node->field_verz_not[0]['value'] == "ja") {
-    $verzend = TRUE;
-  }
-  else {
-    $verzend = FALSE;
-  }
-  global $base_url;
-  // debug -   print_r($node);
-  $ids = gp_get_all_players_uid($node);
-  // debug -  print_r($ids);
-  foreach ($ids as $id) {
-    gp_bezetting_db($node-> nid, $id, 'edit');
-    if ($verzend) {
-    // prepare mail
-      $account = gp_get_user_object($id);
-      $params['account'] = $account;
-      $params['optreden_titel'] = $node-> title;
-      $params['optreden'] = "Datum optreden: ". substr($node-> field_datum[0]['value'], 0, 10) ."\n\n";
-      $params['optreden'] .= "De gevens van dit optreden zijn aangepast.\nBijzonderheden:\n" . $node-> field_bijzonderheden[0]['value'] . "\n\n" . "Selecteer onderstaande link voor meer informatie\n\n";
-      $params['node_url'] = $base_url . "/node/". $node-> nid;
-      $params['afz'] = gp_idtoname($node-> uid);
+/**
+ * Implements hook_node_update().
+ */
+function gigplanning_node_update($node) {
+  if ($node-> type == "optreden") {
+    if ($node->field_verz_not[0]['value'] == "ja") {
+      $verzend = TRUE;
+    }
+    else {
+      $verzend = FALSE;
+    }
+    global $base_url;
+    // debug -   print_r($node);
+    $ids = gp_get_all_players_uid($node);
+    // debug -  print_r($ids);
+    foreach ($ids as $id) {
+      gp_bezetting_db($node-> nid, $id, 'edit');
+      if ($verzend) {
+        // prepare mail
+        $account = user_load($id);
+        $params['account'] = $account;
+        $params['optreden_titel'] = $node-> title;
+        $params['optreden'] = "Datum optreden: ". substr($node-> field_datum[0]['value'], 0, 10) ."\n\n";
+        $params['optreden'] .= "De gevens van dit optreden zijn aangepast.\nBijzonderheden:\n" . $node-> field_bijzonderheden[0]['value'] . "\n\n" . "Selecteer onderstaande link voor meer informatie\n\n";
+        $params['node_url'] = $base_url . "/node/". $node-> nid;
+        $params['afz'] = gp_idtoname($node-> uid);
         drupal_mail('gigplanning', 'update_optreden', $account->mail, user_preferred_language($account), $params);
-  }
-  }
-  if (!$verzend) {
-    $sql ="UPDATE content_type_optreden SET field_verz_not_value = ':field_value' WHERE ':nid'";
-  db_query($sql, array(':field_value' => "ja", ':nid' => $node ->nid));
+      }
+    }
+   if (!$verzend) {
+     $sql ="UPDATE content_type_optreden SET field_verz_not_value = :field_value WHERE :nid";
+    db_query($sql, array(':field_value' => "ja", ':nid' => $node ->nid));
     drupal_set_message(t("No email notifications send for this update"));
   }
   //remove players from db that are not anymore present in giglist
   gp_bezetting_remove_ghosts($ids, $node-> nid);
+}
+
+/**
+ * Implements hook_node_delete().
+ */
+function gigplanning_node_delete($node) {
+  /* when node optreden is deleted this function deletes the entries in de the gig database */
+  if ($node-> type == "optreden") {
+    $result = db_query("DELETE FROM {gp_optredens} WHERE nid = ':nid'", array(':nid' => $node-> nid));
+    if ($result) {
+      drupal_set_message('Optreden is tevens verwijderd uit spelers-database');
+    }
+    else {
+      drupal_set_message('Optreden niet verwijderd uit spelers-database');
+    }
+  }
 }
 
 // giggegevens opslaan in tabel voor bezetting
@@ -573,7 +560,7 @@ function gp_remind_mail($uid, $optreden_id, $diff) {
   else {
     return null;
   }
-  $account = gp_get_user_object($uid);
+  $account = user_load($uid);
   $params['optreden_id'] = $optreden_id;
   $params['remind'] = $diff;
   $params['account'] = $account;
@@ -926,7 +913,7 @@ function gigplanning_block_view($delta = '') {
     $name = variable_get('gp_band_name', 'Gigplanning');
     $output = t('This is the Gigplanning website for %band_name.<br />It is accessible for band members only. Please select <a href = @link>this link</a> to visit our public site', array('%band_name' => $name, '@link' => $website ));
     if (is_actieve_speler($user-> uid)) {
-      //$output = openstaande_optredens($user-> uid);
+      $output .= _gp_openstaande_optredens($user-> uid);
     }
     $block['subject'] = t('Welcome to Gigplanning');
     $block['content'] = $output;
