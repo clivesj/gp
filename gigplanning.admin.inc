@@ -63,7 +63,7 @@ function gigplanning_admin_settings() {
 
 function gigplanning_flex_settings() {
   $sections = gp_get_all_sections();
-  //debug - drupal_set_message(print_r($sections));
+  //debug -  print_r($sections);exit;
   $form['gigplanning_flex_sections'] = array (
     '#type' => 'checkboxes',
   '#title' => 'Sections not always required for gigs',

@@ -7,84 +7,107 @@
 
 // $Id$
 
-function repetitie_perm() {
-  return array('Use repetitie');
+/**
+ * Implements hook_init().
+ */
+function repetitie_init() {
+  drupal_add_library('system', 'drupal.ajax');
+}
+
+/**
+ * Implements hook_permission().
+ */
+function repetitie_permission() {
+   return array(
+    'use_repetitie' => array(
+      'title' => t('Use Repetitie'),
+      'description' => t('with this right you can use the GP Repetitie'),
+    ),
+  );
 }
 
 function repetitie_menu() {
   $items['repetities'] = array(
     'title' => 'Rehearsals',
     'access callback' => 'user_access',
-    'access arguments' => array('Use repetitie'),
+    'access arguments' => array('use_repetitie'),
     'description' => '',
-	'menu_name' => 'primary-links',
+    'menu_name' => 'primary-links',
     'page callback' => 'repetities',
-    
+
   );
-    $items['repetitie/actie'] = array(
+ /*   $items['repetitie/actie/nojs'] = array(
       'title' => '',
       'access callback' => 'user_access',
-      'access arguments' => array('change booking status'),
+      'access arguments' => array('use_repetitie'),
       'description' => '',
       'page callback' => 'gp_repetitie_actie',
+      'page arguments' => array(3, 4),
       'type' => MENU_CALLBACK,
-  ); 
-  return $items;
+  ); */
+    $items['repetitie/actie'] = array(
+        'title' => '',
+        'delivery callback' => 'ajax_deliver',
+        'access callback' => 'user_access',
+        'access arguments' => array('use_repetitie'),
+        'page callback' => 'gp_repetitie_actie',
+        //'page arguments' => array(1,2,3),
+        'type' => MENU_CALLBACK,
+    );
+    return $items;
 }
 
 function repetities() {
   global $user;
-  drupal_add_js('misc/tableheader.js'); 
-  drupal_add_js(drupal_get_path('module', 'repetitie') .'/js/aanw_widget.js');
   drupal_add_css(drupal_get_path('module', 'repetitie') .'/css/repetitie.css');
+  drupal_add_js('misc/tableheader.js');
   // table header
   $output = "";
   $th = '<table class="sticky-enabled"><thead><tr><th>Klik op de<br />datum voor<br />details</th>';
   $repetities = gp_repetitie_list(10);
   foreach ($repetities as $rep) {
-    $th .= '<th class="' . $rep['status_rep'] . '">' 
-	  . $rep['dag'] . '<br />' 
-	  . '<a href="/node/'. $rep['nid'] . '">' . $rep['datum'] . '</a>' . '<br />' 
-	  . $rep['soort'] . '<br />' 
-	  . $rep['bijz'] . '<br />' 
-	  . _repetitie_actie_links($rep['status_rep'], $rep['nid'], $user-> uid)
-	  . $rep['status_rep'] 
-	. "</th>"; 
+    //print_r($rep);exit();
+    $th .= '<th class="' . $rep['status_rep'] . '">'
+    . $rep['dag'] . '<br />'
+    . '<a href="/node/'. $rep['nid'] . '">' . $rep['datum'] . '</a>' . '<br />'
+    . $rep['soort'] . '<br />'
+    . $rep['bijz'] . '<br />'
+    . _repetitie_actie_links($rep['status_rep'], $rep['nid'], $user-> uid)
+    . $rep['status_rep']
+  . "</th>";
   }
   $th .= "</tr></thead>";
-  
+
   //
   $secties = _gp_secties();
+  $dum = '';
   foreach ($secties as $sectie) {
     $dum .= "<tr><td colspan = '11' class = 'gp-col-head'>" . $sectie . "</td></tr>"; // rij met sectie namen
-	$namen = _gp_sectie_spelers($sectie);
-	foreach ($namen as $naam) {
-	  //debug 	 drupal_set_message($naam);
-	  $dum .= "<tr><td class='gp-td-name'>" . $naam . "</td>"; // rij met spelersname
-	  $userid_this_row = gp_gp_nametoid($naam);
-	  //debug - drupal_set_message($userid_this_row);
-	  $lijst = _gp_rep_user_list($userid_this_row, 10);
-	  foreach ($lijst as $aanw) {
-		$node = node_load($aanw['nid'], NULL, TRUE);
-		//debug  print_r($node);
-		$rep_status = $node-> field_status_repetitie[0]['value'];
-		//debug - 		print_r($aanw);
-		if ($rep_status == 'Vervallen') {
-		  $dum .= '<td class="td-aanwezigheid-vervallen"></td>';
-		}
-		else  {
-	      $dum .= '<td class="td-aanwezigheid">' . aanw_widget($aanw['nid'], $userid_this_row, $aanw['aanw']) . '</td>';
-		}
-	  }
-	  $dum .= "</tr>";
-	}
+    $namen = _gp_sectie_spelers($sectie);
+    foreach ($namen as $naam) {
+      //debug drupal_set_message($naam);
+      $userid_this_row = gp_gp_nametoid($naam);
+      $dum .= "<tr><td class='gp-td-name'>" . $naam . "</td>"; // rij met spelersname
+      //debug -      drupal_set_message($userid_this_row);
+      $lijst = _gp_rep_user_list($userid_this_row, 10);
+      foreach ($lijst as $aanw) {
+        $node = node_load($aanw['nid'], NULL, TRUE);
+        //debug   print_r($node); exit;
+        $rep_status = $node-> field_status_repetitie['und'][0]['value'];
+        //debug -     print_r($aanw);
+        if ($rep_status == 'Vervallen') {
+          $dum .= '<td class="td-aanwezigheid-vervallen"></td>';
+        }
+        else  {
+          $dum .= '<td class="td-aanwezigheid">' . aanw_widget($aanw['nid'], $userid_this_row, $aanw['aanw']) . '</td>';
+        }
+      }
+      $dum .= "</tr>";
+    }
   }
   $output .= $th . $dum . "</table>";
   return $output;
 }
-
-/**************************************************************************************/
-
 
 /**
  * Implementation of hook theme
@@ -93,86 +116,92 @@ function repetities() {
 function repetitie_theme() {
   return array(      // this widget contains if player is present or not
     'aanw_widget' => array(
-      'arguments' => array('nid', 'uid', 'status', 'user_this_row'),
-    ),
-	'aanw_link' => array(  // this is the yes-no button
-      'arguments' => array('nid', 'uid', 'status'),
+      'variables' => array('nid' => null, 'user_this_row' => null, 'status' => null,),
     ),
   );
 }
 
 function aanw_widget($nid, $uid_this_row, $status) {
   drupal_add_css(drupal_get_path('module', 'gigplanning') .'/css/aanw_widget.css');
-  return theme('aanw_widget', $nid, $uid_this_row, $status);
+  return theme('aanw_widget', array('nid' => $nid, 'uid_this_row' => $uid_this_row, 'status' => $status));
 }
 
-/* the function for aanw_widget */
-function theme_aanw_widget($nid, $uid_this_row, $status) {
-  $elem_id = $nid . $uid_this_row;                     //id is voor jQuery element element selection
+/* the function for aanw_widget
+ *  valid values for $status: status-ja status-nee
+ */
+function theme_aanw_widget($variables) {
+  $nid = $variables['nid'];
+  $status = $variables['status'];
+  $elem_id = $nid . $variables['uid_this_row'];                     //id is voor jQuery element element selection
   $actie_class = 'actie_link';
   switch ($status) {
     case "Nee":
-	  $div_class = 'status-nee';
-      $display = array('ja' => 'inline', 'nee' => 'none');
-	  break;
-	case "Ja":
-	  $div_class = 'status-ja';
-      $display = array('ja' => 'none', 'nee' => 'inline');
-	  break;
-	default:
-   // Aanwezigheid NULL
-      $div_class = '';
-      $display = array('ja' => 'inline', 'nee' => 'inline');
-	  break;
+      $div_class = 'status-nee';
+      break;
+    case "Ja":
+      $div_class = 'status-ja';
+      break;
+    default:
+      // Aanwezigheid NULL
+      $div_class = 'default';
+  break;
   }
-  $output = '<div id="aan-widget-' . $elem_id . '"' . 'class = "' . $div_class . '">&nbsp;</div>';  
-       
+  $output = '<div id="aan-widget-' . $elem_id . '"' . 'class = "' . $div_class . '">&nbsp;</div>';
   return $output;
 }
 
-/* wordt opgeroepen door js om een actie  uit te voeren */
-function gp_repetitie_actie($nid, $uid, $actie) {
+/* wordt opgeroepen door js om een actie  uit te voeren
+ * heb $ajax eruit gehaald. functie wordt aleen geroepen door ajax
+ */
+function gp_repetitie_actie($var0, $var1, $var2, $var3) {
   global $user;
+  $nid = $var1; $uid = $var2 ; $actie = $var3;
+  // DEBUG  echo 'var0 = ' . $var0 . ' var1 = ' . $var1 . ' var2 = ' . $var2 . ' var3 = ' . $var3 . ' var4 = ' . $var4; exit();
+  // DEBUG echo 'var0 = ' . $var0 . ' uid = ' . $var2 .  ' actie = ' . $var3;exit();
+  $is_ajax = ($ajax === 'ajax');
+  // database aanpassen:
   $elem_id = $nid . $uid;
   // is er al een entry in de database?
-  $excist = db_result(db_query("SELECT COUNT(urid) FROM {gp_repetitie_user} WHERE nid =%d AND uid = %d", $nid, $uid));
+  $excist = db_query("SELECT COUNT(urid) FROM {gp_repetitie_user} WHERE nid = :nid AND uid = :uid", array(':nid' => $nid, ':uid' => $uid))-> fetchField();
   if ($actie =='Ja') {
     if (!$excist) {   // niewe item toevoegen
-      $result = db_query("INSERT INTO {gp_repetitie_user} (uid, nid, aanw) VALUES (%d, %d, '%s')", $user-> uid, $nid, $actie);
-	}
+      $result = db_query("INSERT INTO {gp_repetitie_user} (uid, nid, aanw) VALUES (:uid, :nid, :aanw)", array (':uid' => $user-> uid, ':nid' => $nid, ':aanw' => $actie));
+    }
     else {             // bestaande item updaten
-	  $result = db_query("UPDATE {gp_repetitie_user} SET aanw = '%s' WHERE (nid = %d AND uid = %s)", $actie, $nid, $user-> uid );
-	}
-	$ja_display_attr = "none";
-	$nee_display_attr = "block";
-    $div_status =  'status-ja';
+      $result = db_query("UPDATE {gp_repetitie_user} SET aanw = :aanw WHERE (nid = :nid AND uid = :uid)", array(':aanw' => $actie, ':nid' => $nid, ':uid' => $user-> uid ));
+    }
+    $status = 'Ja'; //theme-function: $div_status =  'status-ja';
   }
-  if ($actie =='Nee') {
+  if ($actie == 'Nee') {
     if (!$excist) {   // niewe item toevoegen
-      $result = db_query("INSERT INTO {gp_repetitie_user} (uid, nid, aanw) VALUES (%d, %d, '%s')", $user-> uid, $nid, $actie);
-	}
+      $result = db_query("INSERT INTO {gp_repetitie_user} (uid, nid, aanw) VALUES (:uid, :nid, :aanw)", array( ':uid' => $user-> uid, ':nid' => $nid, ':aanw' => $actie));
+    }
     else {             // bestaande item updaten
-	  $result = db_query("UPDATE {gp_repetitie_user} SET aanw = '%s' WHERE (nid = %d AND uid = %s)", $actie, $nid, $user-> uid );
-	}
-	$nee_display_attr = "none";
-	$ja_display_attr = "block";
-    $div_status = 'status-nee';
+      $result = db_query("UPDATE {gp_repetitie_user} SET aanw = :aanw WHERE (nid = :nid AND uid = :uid)", array(':aanw' => $actie, ':nid' => $nid, ':uid' => $user-> uid ));
+    }
+    $status = 'Nee'; //Theme-function: $div_status = 'status-nee';
   }
-  print drupal_to_js(array(
-	'elem_id' => $elem_id,
-    'ja_display_attr' => $ja_display_attr, 
-	'nee_display_attr' => $nee_display_attr,
-	'div_status' => $div_status,
-  ));
+  // op de pagina nieuwe status doorgeven en de link aanpassen.
+  // via ajax of via een page refresh
+ // if ($is_ajax) {
+  $commands = array();
+  // Perhaps we could remove the table row we just deleted?
+  // de Flag aanpassen
+  $commands[] = ajax_command_replace('#aan-widget-' . $elem_id, theme('aanw_widget', array('nid' => $nid, 'uid_this_row' => $uid, 'status' => $status)));
+  //echo(print_r($commands));exit();
+  return array(
+    '#type' => 'ajax',
+    '#commands' => $commands,
+  );
 }
 
 function _repetitie_actie_links($status, $nid, $uid) {
-	global $user;
+  global $user;
   $output = "";
   if ($status == "Gaat door" && (_gp_user_is_bandmember())) {
-    $output = 
-	  '<div><a class = "button green small actie-link" href="/repetitie/actie/' . $nid . '/' . $uid . '/Ja">'  . t("YES") . '</a>' 
-      . '<a class = "button red small actie-link" href="/repetitie/actie/' . $nid . '/' . $uid . '/Nee">'  . t("NO") . '</a></div>';
+    $output =
+    '<div><a class = "use-ajax button green small actie-link" href="/repetitie/actie/nojs/' . $nid . '/' . $uid . '/Ja">'  . t("YES") . '</a>'
+      . '<a class = "use-ajax button red small actie-link" href="/repetitie/actie/nojs/' . $nid . '/' . $uid . '/Nee">'  . t("NO") . '</a></div>';
   }
   return $output;
 }
@@ -182,7 +211,7 @@ function _gp_user_is_bandmember() {
   global $user;
   if (array_key_exists(variable_get('gigplanning_role_bandmembers',''), $user->roles)) {
      return true;
-  } 
+  }
   else {
     return false;
   }

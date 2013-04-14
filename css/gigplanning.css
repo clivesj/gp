@@ -31,6 +31,7 @@ div.gp-section-size {border: 1px #9C6 solid; float:left; padding: 4px;}
 
 
 /* Aanpassingen JSJ */
+
 .field .field-label-inline,
 .field .field-label-inline-first { display: inline-table; width: 20%;}
 
@@ -45,7 +46,7 @@ div.bezetting td.bezetting-speler { background-color: #6F3; border: 1px solid #C
 div.bezetting td.bezetting-speler-empty { border: 1px solid #CCC; vertical-align:text-top; padding: 4px 14px;}
 
 div.optreden-tabel { background-color: #9C6; padding:0;}
-.voorstellen-tabel td{ padding: 0px;}
+/*.voorstellen-tabel td{ padding: 0px;} */
 .optreden-tabel table {padding: 2px 2px;}
 .optreden-tabel td{  padding: 4px 8px;}
 
@@ -109,24 +110,26 @@ div.td-Neelink {background-color: #FF2424;}
 div.td-Neelink, div.td-Jalink { line-height:1em; width: 24px; float:left; border-radius: 4px 4px 4px 4px; font-size:0.7em;}
 div.td-img {text-align:center;}
 /* ------------------------------------------------*/
-#bezetting { font-weight:bold; margin-top: 2px; }
+#bezetting { font-weight:bold; margin-top: 2px; width:100%; }
 #bezetting .div { border:#666 thick;}
-#bezetting .sectie-head { width:100%; text-align:center; background-color:rgb(203,221,214); border-bottom:  rgb(70,67,57) 2px solid; padding: 2px 0px;}
+#bezetting .sectie-head {  width: 100%; text-align: center; background-color: #e8e8e8; border-bottom: #c2c2c2 1px solid;
+color: rgb(119, 135, 156); padding: 2px 0px;
+}
 #bezetting .row { width: 100%; /*border: #999 1px solid;*/}
-#col1, #col2, #col3, #col4 {width:24%; float: left; border: #999 1px solid;} /*border-right: #999 3px solid;}*/
-.naam-label { width:72%; }
+#col1, #col2, #col3, #col4 {width:24.5%; float: left; border: #c2c2c2 1px solid;} /*border-right: #999 3px solid;}*/
+.name-row {width: 100%; overflow: hidden;}
 .ja { background-color: #0C3;}
 .nee { background-color:#F33; }
 .geenreactie { background-color: #FFF;}
 .vraagteken {background-color: #999999; }
-.ja, .nee, .geenreactie, .vraagteken { border-left: #999 1px solid; width: 13%; }
-.naam-label  { float: left; padding: 2px 8px; border-bottom: #999 1px solid;}
-.ja, .nee, .geenreactie, .vraagteken { float: right; padding: 2px 8px;} /*border-bottom: #999 1px solid;} */
+.ja, .nee, .geenreactie, .vraagteken { border-left: #999 1px solid; overflow:hidden; }
+.naam-label  { float: left; padding: 2px 8px; border-bottom: #999 1px solid; width: 66%;}
+.ja, .nee, .geenreactie, .vraagteken {padding: 2px 2px; color: #FFF; border-bottom: #999 1px solid;} /*border-bottom: #999 1px solid;} */
 /*.naam-label, .ja, .nee, .geenreactie, .sectie-head { }*/
 /*--------------------------------------------------*/
 .clear-both { clear: both;}
 
-html.js fieldset.collapsible legend a { background-color: #FFFFDD; border-radius: 10px 10px 10px 10px; border: 2px #FC3 solid; display: block; padding-right: 10px; }
+/*html.js fieldset.collapsible legend a { background-color: #FFFFDD; border-radius: 10px 10px 10px 10px; border: 2px #FC3 solid; display: block; padding-right: 10px; }*/
 
 img.gp-blog-pic { float:right;}
 
@@ -134,5 +137,61 @@ img.gp-blog-pic { float:right;}
   border: 1px #FC3 solid; display: block; border-radius: 10px; padding: 4px;
   }
 
+/* -----------------Content type node-optreden---------- */
+.node-optreden, .profile2-my-profile, .region-content {
+  background-color: #FFF;
+  max-width: 800px;
+  border-radius: 10px;
+  padding: 20px 20px;
+}
 
+.node-optreden .field-label { display: inline-table; width: 160px;}
+.gp-line-above {border-top: 1px;}
+
+.field-name-field-bijzonderheden {
+  background-color: #FDFDFD; padding:10px;
+  box-shadow: 0 2px 6px #efefef inset;
+  border: 1px solid #CCC;
+  -webkit-border-radius: 10px;
+  -moz-border-radius: 10px;
+  border-radius: 10x;
+  margin: 10px 0 20px 0;
+  -webkit-box-shadow: 0 2px 6px #efefef inset;
+  -moz-box-shadow: 0 2px 6px #efefef inset;
+}
+
+.field-items p {
+  margin-bottom: 10px;
+}
+
+.float-img-left { float: left; margin-right: 32px;}
+
+/* strings */
+.gp-string-1 {font-size: 1.5em;
+color: #020202;
+margin: 10px 0px;
+text-shadow: 1px 1px 0 rgba(48, 103, 153, .7);}
+
+.gp-string-2 {font-size: 1.3em;
+color: #020202;
+margin-bottom: 10px;
+/*text-shadow: 1px 1px 0 rgba(48, 103, 153, .7);*/}
+
+.agenda-day {
+ transform: rotate(-6deg);
+-ms-transform: rotate(-6deg);
+-webkit-transform: rotate(-6deg);
+-o-transform: rotate(-6deg);
+-moz-transform: rotate(-6deg);
+background-color: #80C7A3;
+padding: 20px 4px 0px;
+display: block;
+width: 70px;
+height: 70px;
+margin-right: -30px;
+font-size: 1.3em;
+color: #fff;
+font-variant: small-caps;
+font-weight: 800;
+}
 

@@ -7,17 +7,46 @@
 
 // $Id$
 
-function gigplanning_perm() {
-  return array('change booking status', 'send reminder', 'Use repetitie');
+/**
+ * Implements hook_init().
+ */
+function gigplanning_init() {
+  drupal_add_library('system', 'drupal.ajax');
+  drupal_add_css(drupal_get_path('module', 'gigplanning') .'/css/gigplanning.css');
+ // drupal_add_js(drupal_get_path('module', 'gigplanning') .'/js/set_stage.js');
+}
+
+
+function gigplanning_permission() {
+  return array(
+      'change_booking_status' => array(
+          'title' => 'Change Booking Status',
+          'description' => '',
+          ),
+      'use_gigplanning' => array(
+          'title' => t('Use Gigplanning'),
+          'description' => '',
+          ),
+      );
 }
 
 function gigplanning_menu() {
+  $items['gigplanning/home'] = array(
+    'title' => 'Gigplanning',
+    'type' => MENU_NORMAL_ITEM,
+    'access callback' => 'user_access',
+    'access arguments' => array('use_gigplanning'),
+    'page callback' => 'gp_return_home',
+
+  );
   $items['optreden/set_stage'] = array(
+    'delivery callback' => 'ajax_deliver',
     'title' => 'Optreden Set Stage',
     'access callback' => 'user_access',
-    'access arguments' => array('change booking status'),
+    'access arguments' => array('change_booking_status'),
     'description' => '',
     'page callback' => 'gp_optreden_set_stage',
+    'delivery callback' => 'ajax_deliver',
     'type' => MENU_CALLBACK,
   );
   $items['optreden/changestatus'] = array(
@@ -26,6 +55,7 @@ function gigplanning_menu() {
     'access arguments' => array('change booking status'),
     'description' => '',
     'page callback' => 'gp_optreden_changestatus',
+   'delivery callback' => 'ajax_deliver',
     'type' => MENU_CALLBACK,
   );
     $items['optreden/reminder'] = array(
@@ -79,9 +109,8 @@ function gigplanning_menu() {
   return $items;
 }
 
-function gigplanning_init() {
-  drupal_add_css(drupal_get_path('module', 'gigplanning') .'/css/gigplanning.css');
-  drupal_add_js(drupal_get_path('module', 'gigplanning') .'/js/set_stage.js');
+function gp_return_home() {
+  drupal_goto('frontpage');
 }
 
 /**
@@ -117,12 +146,9 @@ function _gp_secties($repetitie = TRUE) {
   $sql= "SELECT DISTINCT(value) FROM profile_value WHERE fid = :d ORDER BY value ASC";
   $result = db_query($sql, array(':d' => variable_get('gigplanning_section', 'profile-sectie')));
   $rows = array();
-  foreach ($result as $row) {
-     $rows[$row-> value] = $row-> value;
-  }
-  /* D6 while ($row = db_fetch_array($result)) {
+  while ($row = $result-> fetchAssoc()) {
     $rows[$row['value']] = $row['value'];
-  } */
+  }
   // TODO unset flex secties
   unset($rows['Niet-speler']);
   if ($repetitie) { unset($rows['Licht en Geluid'], $rows['DJ']);}
@@ -132,21 +158,21 @@ function _gp_secties($repetitie = TRUE) {
 //used by repetitie
 function gp_repetitie_list($limit) {
   $sql = "SELECT
-      n.nid, title,
+    n.nid, title,
     r.field_soort_repetitie_value as soort,
     r.field_status_repetitie_value as status_rep,
     r.field_repetitie_bijzonderheden_value as bijz,
     DATE(r.field_datum_repetitie_value) as sort_date,
-    DATE_FORMAT(DATE(r.field_datum_repetitie_value), '%%d/%%m') as datum,
+    DATE_FORMAT(DATE(r.field_datum_repetitie_value), '%e %b') as datum,
     DAYNAME(r.field_datum_repetitie_value) as dag
       FROM node n
           LEFT JOIN content_type_repetitie r on (n.nid = r.nid)
-          WHERE r.field_datum_repetitie_value >= CURDATE() AND type = ':type'
-        ORDER BY sort_date
-          LIMIT ':limit'";
-  $result = db_query($sql, array(':type' => 'repetitie', ':limit' => $limit));
-  foreach ($result as $row) {
-    $rows[] = (array)$row;
+          WHERE r.field_datum_repetitie_value >= CURDATE() AND type = 'repetitie'
+        ORDER BY sort_date"
+        ;
+  $result = db_query_range($sql,0,$limit);
+  while ($row = $result->fetchAssoc()) {
+    $rows[] = $row;
     //drupal_set_message($row['datum']);
   }
   return $rows;
@@ -154,9 +180,10 @@ function gp_repetitie_list($limit) {
 
 function _gp_rep_user_list($user_id, $limit) {
   $sql = _gp_repetitie_user_list_sql();
-  $result = db_query($sql, array(':uid' => $user_id, ':type' => 'repetitie', ':limit' => $limit));
-  foreach ($result as $row) {
-    $rows[] = (array)$row;
+  $result = db_query_range($sql, 0, $limit, array(':uid' => $user_id, ':type' => 'repetitie'));
+  while ($row = $result-> fetchAssoc()) {
+    //debug print_r($row);
+    $rows[] = $row;
   }
   return $rows;
 }
@@ -172,16 +199,16 @@ function _gp_repetitie_user_list_sql() {
       aanw, urid
     FROM node n
         LEFT JOIN content_type_repetitie r on (n.nid = r.nid)
-        LEFT JOIN gp_repetitie_user g on (n.nid = g.nid AND g.uid = ':uid')
-        WHERE r.field_datum_repetitie_value >= CURDATE() AND type = ':type'
-        ORDER BY sort_date
-          LIMIT ':limit'";
+        LEFT JOIN gp_repetitie_user g on (n.nid = g.nid AND g.uid = :uid)
+        WHERE r.field_datum_repetitie_value >= CURDATE() AND type = :type
+        ORDER BY sort_date";
+        //  LIMIT ':limit'";
 }
 
-function gp_optreden_changestatus($optreden_id, $speler_id, $new_status) {
-  $sql = "UPDATE {gp_optredens} SET speel_status = ':speel_status' WHERE nid = ':nid' AND uid = ':uid'";
-  $res = db_query($sql, array(':speel_status' => $new_status, ':nid' => $optreden_id, ':uid' => $speler_id));
-  //debug - drupal_set_message($new_status);
+function gp_optreden_changestatus($ajax, $gig_id, $speler_id, $new_status, $stage) {
+  //debug  echo $ajax . ' | ' . $gig_id . ' | ' . $speler_id . ' | ' . $new_status . ' | ' . $stage ; exit();
+  $sql = "UPDATE {gp_optredens} SET speel_status = :speel_status WHERE nid = :nid AND uid = :uid";
+  $res = db_query($sql, array(':speel_status' => $new_status, ':nid' => $gig_id, ':uid' => $speler_id));
   switch ($new_status) {
       case 'ja':
         $reactie_text = t('Je hebt je opgegeven voor dit optreden');
@@ -192,12 +219,12 @@ function gp_optreden_changestatus($optreden_id, $speler_id, $new_status) {
       case 'vraagteken':
         $reactie_text = t('Er staat voor een vraagteken voor dit optreden. Je kunt dit indien gewenst alsnog aanpassen');
   }
-  print drupal_to_js(
-    array (
-    'new_status' => $new_status,
-    'reactie_text' => $reactie_text,
-    'id' => $speler_id,
-    )
+  $commands = array();
+  $commands[] = ajax_command_replace('#reactie-balk', _gp_reactie_balk($speler_id, $maybe, $gig_id, $new_status, $stage));
+  $commands[] = ajax_command_replace('#play-status-' . $speler_id, theme('play_status', array('play_status' => $new_status, 'uid' => $speler_id, 'stage' => $stage)));
+  return array(
+    '#type' => 'ajax',
+    '#commands' => $commands,
   );
 }
 
@@ -206,30 +233,30 @@ function gp_optreden_changestatus($optreden_id, $speler_id, $new_status) {
  * $nid, nid to check which players to exclude from gig
  */
 function _gp_get_all_players_uid($node) {
-  //debug -  print_r($node);
+  $spelers_ids = array();
+  //debug -  print_r($node);exit();
   // get all sections
   $sections = gp_get_all_sections();
-  // get the sections to exclude by default
+  // get the sections to EXCLUDE by default
   $excl_sections = variable_get('gigplanning_flex_sections', NULL);
   if ($excl_sections) {
-  foreach ($excl_sections as $excl_section){
+    foreach ($excl_sections as $excl_section){
       if ($excl_section) {
         //unset this section
-    //debug -     drupal_set_message($excl_section. ' will be unset');
-    unset($sections[$excl_section]);
+        //debug -     drupal_set_message($excl_section. ' will be unset');
+        unset($sections[$excl_section]);
+      }
     }
-  }
   }
   //debug -  print_r($sections);
-  // get sections to include for this node
-  $flex_sections = $node-> field_also_invite;
-  //debug - print_r($flex_sections);
-  if ($flex_sections) {
-    foreach ($flex_sections as $flex_section_arrays) {
-    foreach ($flex_section_arrays as $key => $value) {
+  // get sections to INCLUDE for this node
+  $flex_sections = field_get_items('node', $node, 'field_also_invite');
+  foreach ($flex_sections as $flex_section) {
+    $value = $flex_section['value'];
+    if ($value) {
+     //echo('$value is = ' . $value . '<br>');
       $sections[$value] = $value;
     }
-  }
   }
   //debug -   print_r($sections);
   // get all the members for the modified sectionlist
@@ -238,39 +265,39 @@ function _gp_get_all_players_uid($node) {
         JOIN profile_value pv ON (u.uid = pv.uid)
         JOIN users_roles ur ON (u.uid = ur.uid)
           WHERE
-          pv.fid = ':fid' AND pv.`value` IN('". implode("','", $sections) . '\')' .
+          pv.fid = :fid AND pv.`value` IN('". implode("','", $sections) . '\')' .
              "AND u.`status` = 1
-              AND ur.rid = ':rid'";
+              AND ur.rid = :rid";
   //TODO default value bij variable_get is onzinnig
   $res = db_query($sql, array(':fid' => variable_get('gigplanning_section', 'profile-sectie'), ':rid' => variable_get('gigplanning_role_bandmembers', 'vaste_speler')));
   if (!$res) {
     drupal_set_message("db error while picking up splelers_id");
   }
   else {
-    while ($res_arr = db_fetch_array($res)) {
+    while ($res_arr = $res->fetchAssoc()) {
         $spelers_ids[] = $res_arr["uid"];
     }
   }
   // invallers:
-  $invallers = $node-> field_invallers;
-  if ($invallers) {
-    foreach ($invallers as $invaller) {
-    if ($invaller['uid']) {
-      $spelers_ids[] = $invaller['uid'];
+  $invallers = field_get_items('node', $node, 'field_invallers');
+  foreach ($invallers as $invaller) {
+    $value = field_view_value('node', $node, 'field_invallers', $invaller);
+    if ($value) {
+
+      $spelers_ids[] = $value;
       //debug -       print_r($spelers_ids); //   drupal_set_message($invaller['uid']);
     }
-  }
   }
   return $spelers_ids;
 }
 
 function gp_idtoname($uid) {
-  $name = db_result(db_query("SELECT name FROM {users} WHERE uid = ':uid'", array(':uid' => $uid)));
+  $name = db_query("SELECT name FROM {users} WHERE uid = :uid", array(':uid' => $uid))->fetchField();
 return $name;
 }
 
 function gp_gp_nametoid($name) {
-  $id = db_result(db_query("SELECT uid FROM {users} WHERE name = ':name'", array(':name' => $name)));
+  $id = db_query("SELECT uid FROM {users} WHERE name = :name", array(':name' => $name))->fetchField();
   return $id;
 }
 
@@ -296,23 +323,27 @@ function _gp_openstaande_optredens($uid) {
 return $output;
 }
 
+
 /**
  * Implements hook_node_insert().
  */
 function gigplanning_node_insert($node) {
   if ($node-> type == "optreden") {
-    //debug - print_r($node);
+    //debug -  print_r($node);exit();
+    $params = array();
     $ids = _gp_get_all_players_uid($node);
+    //DEBUG print_r($ids);exit();
     global $base_url;
+
     //opbouw mail
     $params['optreden_titel'] = $node-> title;
-    $params['optreden'] .= "Optreden      : " . $node-> title ."\n\n";
-    $params['optreden'] .= "Datum optreden: " . substr($node-> field_datum[0]['value'], 0, 10) ."\n";
-    $params['optreden'] .= "Reageren voor : " . substr($node-> field_reageren[0]['value'], 0, 10) ."\n";
-    $params['optreden'] .= "Tijd          : " . $node-> field_tijd[0]['value'] ."\n";
-    $params['optreden'] .= "Bijzonderheden:\n" . $node-> field_bijzonderheden[0]['value'] . "\n\n";
+    $params['optreden'] = "Optreden      : " . $node-> title ."\n\n";
+    $params['optreden'] .= "Datum optreden: " . substr($node-> field_datum['und'][0]['value'], 0, 10) ."\n";
+    $params['optreden'] .= "Reageren voor : " . substr($node-> field_reageren['und'][0]['value'], 0, 10) ."\n";
+    $params['optreden'] .= "Tijd          : " . $node-> field_tijd['und'][0]['value'] ."\n";
+    $params['optreden'] .= "Bijzonderheden:\n" . $node-> field_bijzonderheden['und'][0]['value'] . "\n\n";
     $params['optreden'] .= "Overige gegevens zijn nog niet bekend cq. beschikbaar op de website\n";
-    $params['node_url'] .= $base_url . "/node/". $node-> nid;
+    $params['node_url'] = $base_url . "/node/". $node-> nid;
     $params['afz'] = gp_idtoname($node-> uid);
     //$account = gp_get_user_object($id);
     //$params['account'] = $account;
@@ -321,7 +352,8 @@ function gigplanning_node_insert($node) {
       gp_bezetting_db($node-> nid, $id, 'insert');
       $account = user_load($id);
       $params['account'] = $account;
-      drupal_mail('gigplanning', 'nwe_optreden', $account->mail, user_preferred_language($account), $params);
+      //print_r($account);exit();
+      //drupal_mail('gigplanning', 'nwe_optreden', $account->mail, user_preferred_language($account), $params);
     }
   }
 }
@@ -330,6 +362,7 @@ function gigplanning_node_insert($node) {
  * Implements hook_node_update().
  */
 function gigplanning_node_update($node) {
+  /*
   if ($node-> type == "optreden") {
     if ($node->field_verz_not[0]['value'] == "ja") {
       $verzend = TRUE;
@@ -355,13 +388,15 @@ function gigplanning_node_update($node) {
         drupal_mail('gigplanning', 'update_optreden', $account->mail, user_preferred_language($account), $params);
       }
     }
-   if (!$verzend) {
+    if (!$verzend) {
      $sql ="UPDATE content_type_optreden SET field_verz_not_value = :field_value WHERE :nid";
-    db_query($sql, array(':field_value' => "ja", ':nid' => $node ->nid));
-    drupal_set_message(t("No email notifications send for this update"));
+     db_query($sql, array(':field_value' => "ja", ':nid' => $node ->nid));
+     drupal_set_message(t("No email notifications send for this update"));
+   }
+   //remove players from db that are not anymore present in giglist
+   gp_bezetting_remove_ghosts($ids, $node-> nid);
   }
-  //remove players from db that are not anymore present in giglist
-  gp_bezetting_remove_ghosts($ids, $node-> nid);
+  */
 }
 
 /**
@@ -382,16 +417,19 @@ function gigplanning_node_delete($node) {
 
 // giggegevens opslaan in tabel voor bezetting
 function gp_bezetting_db($nid, $id, $mode) {
+  //DEBUG drupal_set_message($id);
   if ($mode == 'insert') {
     $res = db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
-                   VALUES (':nid', ':uid', ':speel_status')", array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => 'geenreactie'));
+                   VALUES (:nid, :uid, :speel_status)",
+              array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => 'geenreactie'));
   }
   elseif ($mode == 'edit') {
     // is er al een entry in DB voor deze $id
-    $result = db_result(db_query("SELECT COUNT(bezid) FROM {gp_optredens} WHERE nid = ':nid' AND uid = ':uid'", array(':nid' => $nid, ':uid' => $id)));
+    $result = db_query("SELECT COUNT(bezid) FROM {gp_optredens} WHERE nid = ':nid' AND uid = ':uid'", array(':nid' => $nid, ':uid' => $id))->fetchField;
     if (!$result) {
       db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
-                   VALUES (':nid', ':uid', ':speel_status')", array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => 'geenreactie'));
+                   VALUES (:nid, :uid, :speel_status)",
+              array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => 'geenreactie'));
     }
   }
 }
@@ -512,7 +550,7 @@ function gp_optreden_reminder_form_submit($form, &$form_state) {
   gp_manual_remind_mail($spelers, $form_state['values']['tekst'], $form_state['values']['nid'] );
 }
 
-function gigplanning_cron () {
+function gigplanning_cron () { /*
   $today = time();
   $sql = "SELECT UNIX_TIMESTAMP(field_reageren_value), nid FROM {content_type_optreden} WHERE DATE(field_datum_value) > CURDATE()";
   $res = db_query($sql)-> fetchAssoc();
@@ -530,7 +568,7 @@ function gigplanning_cron () {
         }
       }
     }
-  }
+  }  */
   //nieuwe spelers
 }
 
@@ -607,25 +645,27 @@ function gp_set_db_field($diff) {
 function gigplanning_mail($key, &$message, $params) {
   global $base_url;
   $language = $message['language'];
-  $variables = user_mail_tokens($params['account'], $language);
+ // $variables = user_mail_tokens($params['account'], $language);
   $footer = "Met vriendelijke groeten\n\n" .$params['afz'] ."\n**********\nDit is een automatisch bericht van " . variable_get('gigplanning_email_from_name', 'Gigplanning') . "\nReageren d.m.v. \"reply\" of \"beantwoorden\" is niet mogelijk";
   switch ($key) {
   case 'crontest':
     $message['subject'] = "Reactie optreden: Deadline loopt af";
-    $message['body'] = t("Beste !username\n\n", $variables, $language->language);
-    $message['body'] .= "De deadline voor het optreden \n" . $base_url . "/node/". $params['optreden_id'] ."\n". $params['verloopt'] ."\n\nGaarne zo snel mogelijk laten weten of je wel of niet kunt\n\n". $params['list'] ."\n\n";
+    $message['body'] = t("Beste !username\n\n"); // TODO $variables, $language->language);
+    $message['body'] .= "De deadline voor het optreden \n" . $base_url . "/node/". $params['optreden_id'] ."\n".
+        $params['verloopt'] ."\n\nGaarne zo snel mogelijk laten weten of je wel of niet kunt\n\n". $params['list'] ."\n\n";
     $message['body'] .= $footer;
     break;
   case 'nwe_optreden':
     $message['subject'] = "Aanvraag optreden: ". $params['optreden_titel'];
-    $message['body'] = t("Beste !username\n\nEr is een aanvraag voor een optreden. \nGaarne via onderstaande link op de website aangeven of je mee kunt doen.\n\n", $variables, $language->language);
+    $message['body'] = t("Beste !username\n\nEr is een aanvraag voor een optreden.
+          \nGaarne via onderstaande link op de website aangeven of je mee kunt doen.\n\n"); // TODO, $variables, $language->language);
     $message['body'] .= $params['node_url'] ."\n\n";
     $message['body'] .= $params['optreden'] ."\n";
     $message['body'] .= $footer;
     break;
   case 'update_optreden':
     $message['subject'] = "Update: ". $params['optreden_titel'];
-    $message['body'] = t("Beste !username\n\n", $variables, $language->language);
+    $message['body'] = t("Beste !username\n\n"); // TODO , $variables, $language->language);
     $message['body'] .= $params['optreden'] ."\n";
     $message['body'] .= $params['node_url'] ."\n\n";
     $message['body'] .= $footer;
@@ -667,9 +707,11 @@ function _gp_sectie_spelers($sectie_naam) {
                 ON (u.uid = pv.uid)
          JOIN users_roles ur
         ON (u.uid = ur.uid)
-             WHERE pv.value = ':value' AND u.status = ':status' AND ur.rid = ':rid";
-  $result = db_query($sql, $sectie_naam, 1, variable_get('gigplanning_role_bandmembers',''))-> fetchAssoc();
-  foreach($result as $row) {
+             WHERE pv.value = :value AND u.status = :status AND ur.rid = :rid";
+  $result = db_query($sql, array(':value' => $sectie_naam,
+                                  ':status' => 1,
+                                  ':rid' => variable_get('gigplanning_role_bandmembers','')));
+  while ($row = $result -> fetchAssoc()) {
     $rows[] = $row['user_name'];
   }
   //debug -   print_r($rows);
@@ -684,6 +726,9 @@ function _gp_sectie_spelers($sectie_naam) {
  */
 function gigplanning_theme() {
   return array(
+    'play_status' => array(
+      'variables' => array('variables' => NULL ),
+    ),
     'onstage_widget' => array(
       'arguments' => array('nid', 'uid', 'cur_state'),
      ),
@@ -694,9 +739,14 @@ function gigplanning_theme() {
 }
 
 /* the function for onstage_widget */
-function theme_onstage_widget($nid, $uid, $cur_state) {
+function theme_onstage_widget($vars) {
+  $nid = $vars['nid'];
+  $uid = $vars['uid'];
+  $speel_status = $vars['speel_status'];
+  $cur_state = $vars['cur_state'];
+  // DEBUG echo('nid = ' . $nid . ' | uid = ' . $uid . ' | curstate = ' . $cur_state);
   // $elem_id = $nid . $uid_this_row;                     //id is voor jQuery element element selection
-  $output = '<div class = "podium-link">' . '<a class= "podium-link-actie" href=/optreden/set_stage/' . $nid . '/' . $uid . '/' . $cur_state . '>' . t('On Stage') . '</a></div>';
+  $output = '<div id = "podium-link-actie-' . $uid . '" class = "podium-link">' . '<a class= "use-ajax podium-link-actie" href=/optreden/set_stage/nojs/' . $nid . '/' . $uid . '/' . $cur_state . '/' . $speel_status . '>' . t('Stage') . '</a></div>';
   return $output;
 }
 
@@ -704,34 +754,24 @@ function theme_onstage_widget($nid, $uid, $cur_state) {
  * will be called to toggle the ons ateg setting
  */
 
-function gp_optreden_set_stage($nid, $uid, $cur_state) {
-  if ($cur_state) {  // = 1
-    $new_state = 0;
-  $stage_text = "";
-  }
-  else {
-    $new_state = 1;
-  $stage_text = t("On Stage");
-  }
-  $sql = "UPDATE {gp_optredens} SET on_stage = ':on_stage' WHERE nid = ':nid' AND uid = ':uid";
-  db_query($sql, array(':on_stage' => $new_state, ':nid' => $nid, ':uid' => $uid));
-  print drupal_to_js(
-    array(
-      'id' => $uid,
-    'stage_text' => $stage_text,
-    )
+function gp_optreden_set_stage($ajax,$nid, $uid, $cur_stage, $speel_status) {
+  // DEBUG echo('ajax = ' . $ajax . ' | nid = ' . $nid . ' | uid = ' . $uid . ' | curstage  = '  .  $cur_stage . ' | spstatus =  '  . $speel_status);exit();
+  $new_stage = ($cur_stage ? 0 : 1);
+  $sql = "UPDATE {gp_optredens} SET on_stage = :on_stage WHERE nid = :nid AND uid = :uid";
+  db_query($sql, array(':on_stage' => $new_stage, ':nid' => $nid, ':uid' => $uid));
+  $commands = array();
+  $commands[] = ajax_command_replace('#play-status-' . $uid, theme('play_status', array('uid' => $uid, 'stage' => $new_stage, 'play_status' => $speel_status)));
+  $commands[] = ajax_command_replace('#podium-link-actie-' . $uid, theme('onstage_widget', array('nid' => $nid, 'uid' => $uid, 'speel_status' => $speel_status, 'cur_state' => $new_stage)));
+  return array(
+      '#type' => 'ajax',
+      '#commands' => $commands,
   );
-}
-
-function onstage_widget($nid, $uid, $cur_state) {
-  drupal_add_js(drupal_get_path('module', 'gigplanning') .'/js/set_stage.js');
-  return theme('onstage_widget', $nid, $uid, $cur_state);
 }
 
 /* returns all sections */
 function gp_get_all_sections() {
   $fid = variable_get('gigplanning_section', NULL);
-  $sql = "SELECT DISTINCT value FROM {profile_value} WHERE fid = ':fid'";
+  $sql = "SELECT DISTINCT `value` FROM {profile_value} WHERE fid = :fid";
   $result = db_query($sql, array(':fid' => $fid));
   $sections = array();
   while ($row = $result-> fetchAssoc()) {
@@ -745,7 +785,7 @@ function gp_get_all_sections_full() {
   $sql =  "SELECT DISTINCT pv.`value`, gss.id, gss.section_size AS size
            FROM profile_value pv
            LEFT OUTER JOIN gp_section_size gss ON (pv.`value` = gss.section_name)
-           WHERE pv.fid = ':fid'";
+           WHERE pv.fid = :fid";
   $result = db_query($sql, array(':fid' => $fid));
   $rows = array();
   while ($row = $result-> fetchAssoc()) {
@@ -921,10 +961,6 @@ function gigplanning_block_view($delta = '') {
   return $block;
 }
 
-/* Amount of gigs this year */
-function gp_nmbr_gigs($nid) {
-}
-
 /*
  * This is a maintanance function. Please run it after insterting or deleting a bandmemder
  * is assures. The gp_tables stays uo to date
@@ -1016,61 +1052,36 @@ function _gp_gig_table_get_variables($nid) {
 }
 
 function theme_gp_gig_table($variables) {
-  //print_r($variables);exit;
+  //DEBUG   print_r($variables);exit;
   global $user;
   $uid = $user-> uid;
+  $maybe = $variables['maybe'];
+  $node_id = $variables['nid'];
 
   //Zet reactiebalk in $output_rb
   if (!is_actieve_speler($uid)) {
     $output_rb = '<span class="reactie-balk-text">Geen actieve speler</span>';
   }
   else {
-    $maybe = $variables['maybe'];
-    $node_id = $variables['nid'];
+    //speel_status only valid for players
     $speel_status = $variables['sections'][$variables['user_section']]['players'][$uid]['speel_status'];
-    $maybe_link_none =  l(t('Maybe'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/vraagteken', array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'reactie-buttons-button', 'style' => 'display:none;'))) . '</div>';
-    $maybe_link      = l(t('Maybe'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/vraagteken', array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'reactie-buttons-button' ))) . '</div>';
-    $yes_link_display_none = l(t('Yes'), 'optreden/changestatus/'. $node_id .'/'. $uid .'/ja', array('attributes' => array('id' => 'reactie-balk-ja',  'class' => 'reactie-buttons-button','style' => 'display:none;')));
-    $yes_link = l(t('Yes'), 'optreden/changestatus/'. $node_id .'/'. $uid .'/ja', array('attributes' => array('id' => 'reactie-balk-ja', 'class' => 'reactie-buttons-button')));
-    $no_link_display_none = l(t('No'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/nee', array('attributes' => array('id' => 'reactie-balk-nee', 'style' => 'display:none;', 'class' => 'reactie-buttons-button' )));
-    $no_link = l(t('No'), 'optreden/changestatus/'. $node_id .'/'. $uid . '/nee', array('attributes' => array('id' => 'reactie-balk-nee', 'class' => 'reactie-buttons-button' )));
-    switch ($speel_status) {
-      case 'ja':
-        $ret1 = '<span class = "reactie-balk-text">Je hebt je al opgegeven voor dit optreden</span>';
-        $ret2 = '<div id = "reactie-buttons">'.
-            $yes_link_display_none . $no_link_display_none . ($maybe ? $maybe_link_none : '') . '</div>';
-        break;
-      case 'nee':
-        $ret1 = '<span class = "reactie-balk-text">Je doet niet mee. Je kunt dit indien gewenst alsnog aanpassen</span>';
-        $ret2 = '<div id = "reactie-buttons">'.
-            $yes_link .  $no_link_display_none . ($maybe ? $maybe_link : '') . '</div>';
-        break;
-      case 'vraagteken':
-        $ret1 = '<span class = "reactie-balk-text">Er staat voor een vraagteken voor dit optreden. Je kunt dit indien gewenst alsnog aanpassen</span>';
-        $ret2 = '<div id = "reactie-buttons">'.
-            $yes_link . $no_link . ($maybe ? $maybe_link_none : '') . '</div>';
-        break;
-      case 'geenreactie':
-        $ret1 = '<span class = "reactie-balk-text">Je hebt nog niet gereageerd. Gaarne dit alsnog doen</span>';
-        $ret2 = '<div id = "reactie-buttons">'.
-            $yes_link . $no_link . ($maybe ? $maybe_link : '') . '</div>';
-        break;
-      default:
-        $ret1 = "default switch - case";
-        break;
-    }
-    $output_rb = $ret1 . $ret2 . "<div class='clear-both'></div>";
+    $on_stage_this_gig = $variables['sections'][$variables['user_section']]['players'][$uid]['on_stage'];
+    $output_rb = _gp_reactie_balk($uid, $maybe, $node_id, $speel_status, $on_stage_this_gig);
   }
-  //print_r($variables); exit;
+
+  // DEBUG print_r($variables); exit;
   $sections = $variables['sections'];
   $podium = $variables['podium'];
   $i = 0;
   $output3 = '<div id = "bezetting">';
   foreach ($sections as $section_name => $section) {
+    // DEBUG echo $section_name . '<br>' ;   print_r($section);
     $sectie_lid = $section['is_players_section'];
     $sectie_size = $section['size'];
     $sectie_ja = gp_count('ja', $section['players']);
-    //debug  drupal_set_message($sectie . " \ count = " . count($sectie_spelers_arr) . "\ count -ja = " . gp_count('ja', $sectie_spelers_arr) . '/ size ; =  ' . gp_sectie_size($sectie));
+    //debug
+    //drupal_set_message($sectie_name . "  count = " . count($sectie_spelers_arr) . "\ count -ja = " . gp_count('ja', $sectie_spelers_arr) . '/ size ; =  ' . gp_sectie_size($sectie));
+    //debug echo $section_name . ' aantal ja = ' . $sectie_ja . '<br>';
     $i++;
     if ($i == 1) {
       $output3 .= '<div id="col1">';
@@ -1090,36 +1101,52 @@ function theme_gp_gig_table($variables) {
     foreach ($section as $key => $section_arr) {
       if ($key == 'players') {
         foreach ($section_arr as $arr) {
+          $output3 .= '<div class = "name-row">';
+          //DEBUG print_r($arr);
           if ($podium) {    // if podium option activated
             if ($sectie_lid && ($arr['speel_status'] == 'ja') && ($sectie_ja > $sectie_size)) {    // if player is member of section AND is available
-              $output3 .= '<div class = "naam-label">' . $arr['name'] . onstage_widget($arr['nid'], $arr['uid'], $arr['on_stage']) . '</div>';
+              $output3 .= '<div class = "naam-label">' . $arr['name'] .
+              theme('onstage_widget', array('nid' => $arr['nid'], 'uid' => $arr['uid'], 'cur_state' => $arr['on_stage'], 'speel_status' => $arr['speel_status'])) . '</div>';
             }
             else {
               $output3 .= '<div class = "naam-label">' . $arr['name'] . '</div>';
             }
-            if ($arr['on_stage']) { // player is On Stage
-              $output3 .= '<div class = "' . $arr['speel_status'] . '" id = "podium-link-'. $arr['uid'] . '">' . "On Stage" . '</div><div class="clear-both"></div>';
-            }
-            else {
-              $output3 .= '<div class = "' . $arr['speel_status'] . '" id = "podium-link-'. $arr['uid'] . '">&nbsp;</div><div class="clear-both"></div>';
-            }
+            $output3 .= theme('play_status', array('play_status' => $arr['speel_status'], 'uid' => $arr['uid'], 'stage' => $arr['on_stage']));
+
           }
-          // Podium option not activated
-          $output3 .= '<div class = "naam-label">' . $arr['name'] . '</div>';
-          $output3 .= '<div class = "' . $arr['speel_status'] . '" id = "podium-link-'. $arr['uid'] . '">&nbsp;</div><div class="clear-both"></div>';
-        }
-      }
-    }// if $key == players
-  $output3 .= '</div><!----end of section start new--->'; // row
+          else {
+            // Podium option not activated
+            $output3 .= '<div class = "naam-label">' . $arr['name'] . '</div>';
+            $output3 .= play_status_theme(array('play_status' => $arr['speel_status'],  'uid' => $arr['uid'], 'stage' => NULL));
+          }
+          $output3 .= '</div><! -- close div name-row>';
+        } // each section_arr
+      }// if $key == players
+    }
+    $output3 .= '</div><!----end of section start new--->'; // row
   }
   $output3 .= '</div>'; // div col2
   $output3 .= '<div class="clear-both"></div>';
-  $output3 .= '</div>'; // div bezetting */
+
+  $output3 .= '</div>'; // div bezetting
   return $output_rb . $output3;
 }
 
+/* if you call this with no intent to change the $stage value
+ * set the 'stage' to 'no_change'
+ */
+function theme_play_status($variables) {
+ //debug   echo 'test';exit();
+  $play_status = $variables['play_status'];
+  $uid = $variables['uid'];
+  $stage = $variables['stage'];
+  $stage_text = ($stage ? 'Stage' : '&nbsp;');
+  return
+    '<div id = "play-status-'. $uid . '" class = "' . $play_status . '" >' . $stage_text . '</div><div class="clear-both"></div>';
+}
+
 function _gp_section_size($section) {
-  $id = db_query("SELECT id FROM {gp_section_size} WHERE section_name = ':name'", array(':name' => $section))-> fetchField();
+  $id = db_query("SELECT id FROM {gp_section_size} WHERE section_name = :name", array(':name' => $section))-> fetchField();
   return variable_get('gigplanning_section_size_' . $id, 0);
 }
 
@@ -1146,8 +1173,8 @@ function _gp_gig_data($section, $gig_id) {
   return $players;
 }
 
-//TODO fid abstaheren
 function _gp_user_data($uid) {
+  $fid = variable_get('gigplanning_section', NULL);
   $sql = "SELECT
     name AS name,
     mail AS email,
@@ -1155,6 +1182,51 @@ function _gp_user_data($uid) {
     FROM {users}
     JOIN {profile_value} pv ON (users.uid = pv.uid)
     WHERE users.uid = :uid AND pv.fid = :fid";
-  $result = db_query($sql, array(':uid' => $uid, ':fid' => 2))-> fetchAssoc();
+  $result = db_query($sql, array(':uid' => $uid, ':fid' => $fid))-> fetchAssoc();
   return $result;
+}
+
+/* returns HTML for the Yes | No | Maybe link above gig table */
+function _gp_reactie_balk($uid, $maybe, $node_id, $speel_status, $stage) {
+  $maybe_link_none =  l(t('Maybe'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/vraagteken/' . $stage, array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'use-ajax reactie-buttons-button', 'style' => 'display:none;'))) . '</div>';
+  $maybe_link      = l(t('Maybe'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/vraagteken/' . $stage, array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'use-ajex reactie-buttons-button' ))) . '</div>';
+  $yes_link_display_none = l(t('Yes'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid .'/ja/' . $stage, array('attributes' => array('id' => 'reactie-balk-ja',  'class' => 'use-ajax reactie-buttons-button','style' => 'display:none;')));
+  $yes_link = l(t('Yes'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid .'/ja/' . $stage, array('attributes' => array('id' => 'reactie-balk-ja', 'class' => 'use-ajax reactie-buttons-button')));
+  $no_link_display_none = l(t('No'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/nee/' . $stage, array('attributes' => array('id' => 'reactie-balk-nee', 'style' => 'display:none;', 'class' => 'use-ajax reactie-buttons-button' )));
+  $no_link = l(t('No'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/nee/' . $stage, array('attributes' => array('id' => 'reactie-balk-nee', 'class' => 'use-ajax reactie-buttons-button' )));
+  switch ($speel_status) {
+    case 'ja':
+      $ret1 = '<span class = "reactie-balk-text">Je hebt je al opgegeven voor dit optreden</span>';
+      $ret2 = '<div id = "reactie-buttons">'.
+          $yes_link_display_none . $no_link_display_none . ($maybe ? $maybe_link_none : '') . '</div>';
+      break;
+    case 'nee':
+      $ret1 = '<span class = "reactie-balk-text">Je doet niet mee. Je kunt dit indien gewenst alsnog aanpassen</span>';
+      $ret2 = '<div id = "reactie-buttons">'.
+          $yes_link .  $no_link_display_none . ($maybe ? $maybe_link : '') . '</div>';
+      break;
+    case 'vraagteken':
+      $ret1 = '<span class = "reactie-balk-text">Er staat voor een vraagteken voor dit optreden. Je kunt dit indien gewenst alsnog aanpassen</span>';
+      $ret2 = '<div id = "reactie-buttons">'.
+          $yes_link . $no_link . ($maybe ? $maybe_link_none : '') . '</div>';
+      break;
+    case 'geenreactie':
+      $ret1 = '<span class = "reactie-balk-text">Je hebt nog niet gereageerd. Gaarne dit alsnog doen</span>';
+      $ret2 = '<div id = "reactie-buttons">'.
+          $yes_link . $no_link . ($maybe ? $maybe_link : '') . '</div>';
+      break;
+    default:
+      $ret1 = "default switch - case";
+      break;
+  }
+  return '<div id="reactie-balk">' . $ret1 . $ret2 . "</div><div class='clear-both'></div>";
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function gigplanning_preprocess_node(&$variables) {
+  if ($variables['type'] == 'nftr_nieuws') {
+
+  }
 }

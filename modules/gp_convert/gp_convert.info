@@ -1,0 +1,7 @@
+;$Id$
+name = GP Convert
+description = Helper module for GP to convert som nodes
+package = "Gigplanning"
+
+version = "7.x-0.9"
+core = "7.x"

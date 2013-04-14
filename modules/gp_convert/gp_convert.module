@@ -1,0 +1,23 @@
+<?php
+/**
+ * Implements hook_menu().
+ */
+
+function gp_convert_menu() {
+  $items = array();
+
+  $items['convertvoorstel'] = array(
+    //'title' => '',
+    //'description' => '',
+    'page callback' => 'convert_voorstel',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+   );
+
+  return $items;
+}
+
+function convert_voorstel() {
+  drupal_set_message('we will convert');
+  return;
+}
