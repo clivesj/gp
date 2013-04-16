@@ -63,9 +63,19 @@ function gigplanning_menu() {
     'access callback' => 'user_access',
     'access arguments' => array('send reminder'),
     'description' => '',
-    'page callback' => 'gp_optreden_reminder',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gp_optreden_reminder_form'),
     'type' => MENU_CALLBACK,
   );
+    $items['optreden/handmatig'] = array(
+        'title' => 'Handmatig bezetting instellen',
+        'access callback' => 'user_access',
+        'access arguments' => array('send reminder'),
+        'description' => '',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('gp_optreden_handmatig_form'),
+        'type' => MENU_CALLBACK,
+    );
   $items['admin/config/gigplanning'] = array(
     'title' => 'Gigplanning',
     'description' => 'Configure Gigplanning',
@@ -279,14 +289,16 @@ function _gp_get_all_players_uid($node) {
     }
   }
   // invallers:
+  $invallers = array();
   $invallers = field_get_items('node', $node, 'field_invallers');
-  foreach ($invallers as $invaller) {
-    $value = field_view_value('node', $node, 'field_invallers', $invaller);
-    if ($value) {
-
-      $spelers_ids[] = $value;
-      //debug -       print_r($spelers_ids); //   drupal_set_message($invaller['uid']);
-    }
+  if ($invallers) {
+    foreach ($invallers as $invaller) {
+      $value = field_view_value('node', $node, 'field_invallers', $invaller);
+      if ($value) {
+        $spelers_ids[] = $value;
+        //debug -       print_r($spelers_ids); //   drupal_set_message($invaller['uid']);
+       }
+     }
   }
   return $spelers_ids;
 }
@@ -353,7 +365,7 @@ function gigplanning_node_insert($node) {
       $account = user_load($id);
       $params['account'] = $account;
       //print_r($account);exit();
-      //drupal_mail('gigplanning', 'nwe_optreden', $account->mail, user_preferred_language($account), $params);
+      drupal_mail('gigplanning', 'nwe_optreden', $account->mail, user_preferred_language($account), $params);
     }
   }
 }
@@ -453,9 +465,9 @@ function gp_bezetting_remove_ghosts($node_players_list, $nid) {
 }
 
 function gp_get_status($node_id, $speler_id) {
-  $res = db_query("SELECT speel_status FROM {gp_optredens} WHERE nid = ':nid' AND uid = ':uid'", array(':nid' => $node_id, ':uid' => $speler_id))-> fetchAssoc();
-  $ret = $res['speel_status'];
-  return $ret;
+  $res = db_query("SELECT speel_status FROM {gp_optredens}
+      WHERE nid = :nid AND uid = :uid", array(':nid' => $node_id, ':uid' => $speler_id))-> fetchField();
+  return $res;
 }
 
 function is_actieve_speler($uid) {
@@ -468,7 +480,6 @@ function is_actieve_speler($uid) {
     return TRUE; } else { return FALSE; }
 }
 
-//TODO rechten niet naar sario maar los instelbaar (access)
 function sario_link($node_id) {
   global $user;
   if (user_access('send reminder') || ($user-> nid == 1)) {
@@ -476,11 +487,19 @@ function sario_link($node_id) {
   }
 }
 
+//een link om handmatig de bezetting in te vullen
+function gp_handmatig_link($nid) {
+  global $user;
+  if (user_access('send reminder') || ($user-> nid == 1)) {
+    return  l('Handmatige bezetting corrigeren', 'optreden/handmatig/'. $nid);
+  }
+}
+
 function gp_optreden_reminder($nid) {
   return drupal_get_form("gp_optreden_reminder_form", $nid);
 }
 
-function gp_optreden_reminder_form(&$form_state, $nid) {
+function gp_optreden_reminder_form($form, &$form_state, $nid) {
   global $base_url;
   $spelers = deel_bezetting_arr($nid, "nee");
   $form['nee'] = array(
@@ -548,6 +567,53 @@ function gp_optreden_reminder_form_submit($form, &$form_state) {
   }
   }
   gp_manual_remind_mail($spelers, $form_state['values']['tekst'], $form_state['values']['nid'] );
+}
+
+function gp_optreden_handmatig_form($form, &$form_state, $nid) {
+  global $base_url;
+  $node = node_load($nid);
+  $spelers = _gp_get_all_players_uid($node);
+      $form['spelers'] = array(
+      '#type' => 'fieldset',
+      '#description' => 'You can edit the giglist for the gig <strong><br>' .
+                        $node-> title . '</strong>',
+          );
+  foreach ($spelers as $key => $speler) {
+    $speler_name = gp_idtoname($speler);
+    $status = gp_get_status($nid, $speler);
+
+    $form['spelers'][$speler] = array(
+      '#title' => $speler_name,
+      '#type' => 'radios',
+      '#options' => array('ja' => 'ja', 'nee' => 'nee', 'geenreactie' =>'geenreactie', 'vraagteken' => 'vraagteken'),
+      '#default_value' => $status,
+      '#attributes' => array('id' => $speler),
+    );
+  }
+  $form['nid'] = array(
+      '#type' => 'value',
+      '#value' => $nid,
+  );
+  $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Save'),
+  );
+  $form['cancel'] = array(
+      '#type' => 'submit',
+      '#value' => t('Cancel'),
+  );
+  return $form;
+}
+
+function gp_optreden_handmatig_form_submit($form, &$form_state) {
+  $bypass = array('nid', 'op', 'submit', 'cancel', 'form_build_id', 'form_token' ,'form_id');
+  $nid = $form_state['values']['nid'];
+  //debug -  print_r($form_state);exit();
+  foreach ($form_state['values'] as $key => $value) {
+    if (!in_array($key, $bypass)) {
+      drupal_set_message('writing '. $value . ' to ' . $nid . ' for user' . $key);
+    }
+  }
 }
 
 function gigplanning_cron () { /*
@@ -685,13 +751,13 @@ function deel_bezetting_arr($optreden_id, $speel_status){
           users.uid AS id
         FROM gp_optredens bez
         JOIN users ON (bez.uid = users.uid)
-          WHERE bez.nid = ':nid'
+          WHERE bez.nid = :nid
       AND users.`status` = 1
-      AND bez.speel_status = ':speel_status'";
-  $result = db_query($sql, array(':nid' => $optreden_id, ':speel_status' => $speel_status))-> fetchAssoc();
+      AND bez.speel_status = :speel_status";
+  $result = db_query($sql, array(':nid' => $optreden_id, ':speel_status' => $speel_status));
   $spelers = array();
-  foreach($result as $row) {
-   $spelers[$row['name']] = $row['name'];
+  while ($row = $result->fetchAssoc()) {
+    $spelers[$row['name']] = $row['name'];
   }
   return $spelers;
 }
@@ -977,6 +1043,28 @@ function gigplanning_users_maintenance() {
   drupal_goto('');
 }
 
+/**
+ * Implements hook_user_insert().
+ */
+function gigplanning_user_insert(&$edit, $account, $category) {
+  print_r($account->roles);exit();
+  $roles ='';
+  foreach ($account-> roles as $role) {
+    $roles .= $role . ' | ';
+  }
+  if (in_array(2, $account->roles)) {
+    $is_speler = 'Is Speler';
+  }
+  else {
+    $is_speler = 'is geen speler';
+  }
+  drupal_set_message('nieuwe user '. '<br>' .
+      'id = ' . $account->   uid . '<br>' .
+      'naam = ' . $account-> name . '<br>' .
+      'status = ' . $account-> status . '<br>' .
+      $roles);
+}
+
 function _gp_user_maint($uid, $nid) {
   $sql = "SELECT bezid FROM gp_optredens WHERE uid = ':uid' AND nid =':nid'";
   $bezid = db_query($sql, array(':uid' => $uid, ':nid' => $nid))-> fetchField();
@@ -1129,7 +1217,8 @@ function theme_gp_gig_table($variables) {
   $output3 .= '<div class="clear-both"></div>';
 
   $output3 .= '</div>'; // div bezetting
-  return $output_rb . $output3;
+
+  return $output_rb . $output3 . sario_link($node_id) . gp_handmatig_link($node_id);
 }
 
 /* if you call this with no intent to change the $stage value
