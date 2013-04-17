@@ -217,8 +217,7 @@ function _gp_repetitie_user_list_sql() {
 
 function gp_optreden_changestatus($ajax, $gig_id, $speler_id, $new_status, $stage) {
   //debug  echo $ajax . ' | ' . $gig_id . ' | ' . $speler_id . ' | ' . $new_status . ' | ' . $stage ; exit();
-  $sql = "UPDATE {gp_optredens} SET speel_status = :speel_status WHERE nid = :nid AND uid = :uid";
-  $res = db_query($sql, array(':speel_status' => $new_status, ':nid' => $gig_id, ':uid' => $speler_id));
+  _gp_set_db($gig_id, $speler_id, 'edit', $new_status);
   switch ($new_status) {
       case 'ja':
         $reactie_text = t('Je hebt je opgegeven voor dit optreden');
@@ -261,11 +260,13 @@ function _gp_get_all_players_uid($node) {
   //debug -  print_r($sections);
   // get sections to INCLUDE for this node
   $flex_sections = field_get_items('node', $node, 'field_also_invite');
-  foreach ($flex_sections as $flex_section) {
-    $value = $flex_section['value'];
-    if ($value) {
-     //echo('$value is = ' . $value . '<br>');
-      $sections[$value] = $value;
+  if ($flex_sections) {
+    foreach ($flex_sections as $flex_section) {
+      $value = $flex_section['value'];
+      if ($value) {
+        //echo('$value is = ' . $value . '<br>');
+        $sections[$value] = $value;
+      }
     }
   }
   //debug -   print_r($sections);
@@ -332,9 +333,24 @@ function _gp_openstaande_optredens($uid) {
     $output .= "<li><a href='/node/" . $ar['nid'] . "'>" . $gig-> title . "</a></li>";
   }
   $output .= "</ul>";
-return $output;
+  return $output;
 }
 
+/* function returns an arra of nids for next Gigs based on params as listed here:
+ * uid: which user // 0 for not specified
+ *
+ */
+function gp_get_next_gigs() {
+  $sql =
+   "SELECT nid
+    FROM {content_type_optreden} WHERE field_status_value <> 'geannuleerd' AND field_datum_value > NOW()";
+  $result = db_query($sql);
+  $result_arr = array();
+  while ($arr = $result->fetchAssoc()) {
+    $result_arr[] = $arr;
+  }
+  return $result_arr;
+}
 
 /**
  * Implements hook_node_insert().
@@ -361,7 +377,7 @@ function gigplanning_node_insert($node) {
     //$params['account'] = $account;
     foreach ($ids as $key => $id) {
       //gegevens opslaan in tabel voor gegevens bezetting to DB
-      gp_bezetting_db($node-> nid, $id, 'insert');
+      gp_set_db($node-> nid, $id, 'insert', 'geenreactie');
       $account = user_load($id);
       $params['account'] = $account;
       //print_r($account);exit();
@@ -427,22 +443,30 @@ function gigplanning_node_delete($node) {
   }
 }
 
-// giggegevens opslaan in tabel voor bezetting
-function gp_bezetting_db($nid, $id, $mode) {
+/* vult voor 1 bepaalde user de gigtabel in.
+ * sommige bestaande functies riepen deze subfunctie op zonder speel_status.
+ */
+function gp_set_db($nid, $id, $mode, $speel_status = 'geenreactie') {
   //DEBUG drupal_set_message($id);
-  if ($mode == 'insert') {
-    $res = db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
+  switch ($mode) {
+    case 'insert':
+      $res = db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
                    VALUES (:nid, :uid, :speel_status)",
-              array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => 'geenreactie'));
-  }
-  elseif ($mode == 'edit') {
-    // is er al een entry in DB voor deze $id
-    $result = db_query("SELECT COUNT(bezid) FROM {gp_optredens} WHERE nid = ':nid' AND uid = ':uid'", array(':nid' => $nid, ':uid' => $id))->fetchField;
-    if (!$result) {
-      db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
+              array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => $speel_status));
+     break;
+    case 'edit':
+      $result = db_query("SELECT COUNT(bezid) FROM {gp_optredens} WHERE nid = ':nid' AND uid = ':uid'", array(':nid' => $nid, ':uid' => $id))->fetchField;
+      if (!$result) {
+        db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
                    VALUES (:nid, :uid, :speel_status)",
-              array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => 'geenreactie'));
-    }
+              array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => $speel_status));
+      }
+      break;
+    case 'delete':
+      $result = db_query("DELETE FROM {gp_optredens} WHERE uid = :uid AND nid = :nid", array(':uid' => $id, ':nid' => $nid));
+      break;
+    default:
+      drupal_set_message('Database error - default case on gp_set_db');
   }
 }
 
@@ -480,10 +504,12 @@ function is_actieve_speler($uid) {
     return TRUE; } else { return FALSE; }
 }
 
+// TODO sario link en gp_handmatig link theme naar theme-function
 function sario_link($node_id) {
   global $user;
   if (user_access('send reminder') || ($user-> nid == 1)) {
-    return  l('Handmatige reminder versturen', 'optreden/reminder/'. $node_id);
+    $link = l('Handmatige reminder versturen', 'optreden/reminder/'. $node_id);
+    return '<div class = "gp-simple-link">'. $link . '</div>';
   }
 }
 
@@ -491,7 +517,8 @@ function sario_link($node_id) {
 function gp_handmatig_link($nid) {
   global $user;
   if (user_access('send reminder') || ($user-> nid == 1)) {
-    return  l('Handmatige bezetting corrigeren', 'optreden/handmatig/'. $nid);
+    $link = l('Handmatig bezetting corrigeren', 'optreden/handmatig/'. $nid);
+    return '<div class = "gp-simple-link">'. $link . '</div>';
   }
 }
 
@@ -606,13 +633,19 @@ function gp_optreden_handmatig_form($form, &$form_state, $nid) {
 }
 
 function gp_optreden_handmatig_form_submit($form, &$form_state) {
-  $bypass = array('nid', 'op', 'submit', 'cancel', 'form_build_id', 'form_token' ,'form_id');
   $nid = $form_state['values']['nid'];
-  //debug -  print_r($form_state);exit();
-  foreach ($form_state['values'] as $key => $value) {
-    if (!in_array($key, $bypass)) {
-      drupal_set_message('writing '. $value . ' to ' . $nid . ' for user' . $key);
+  //debug - print_r($form_state['values']);exit();
+  if ($form_state['values']['op'] == 'Save') {
+    $bypass = array('nid', 'op', 'submit', 'cancel', 'form_build_id', 'form_token' ,'form_id');
+    foreach ($form_state['values'] as $key => $value) {
+      if (!in_array($key, $bypass)) {
+        gp_set_db($nid, $key, 'edit', $value);
+      }
     }
+    drupal_set_message('Gig presence manually adapted');
+  }
+  else {
+    drupal_goto('node/' .$nid);
   }
 }
 
@@ -1047,22 +1080,42 @@ function gigplanning_users_maintenance() {
  * Implements hook_user_insert().
  */
 function gigplanning_user_insert(&$edit, $account, $category) {
-  print_r($account->roles);exit();
-  $roles ='';
-  foreach ($account-> roles as $role) {
-    $roles .= $role . ' | ';
+  $role = variable_get('gigplanning_role_bandmembers', 0);
+  if (in_array($role, $account->roles)) {
+    drupal_set_message('New user uses GP. Add to Gig tablesruiker ');
+    // nieuwe user toevoegen aan GP tabellen
+    $gigs = gp_get_next_gigs();
+    foreach ($gigs as $gig) {
+      gp_set_db($gig['nid'], $account-> uid, 'insert');
+      drupal_set_message('User added to node/' . $gig['nid']);
+    }
   }
-  if (in_array(2, $account->roles)) {
-    $is_speler = 'Is Speler';
+}
+
+/**
+ * Implements hook_user_delete().
+ */
+function gigplanning_user_delete($account) {
+  $gigs = gp_get_next_gigs();
+  foreach($gigs as $gig) {
+    gp_set_db($gig['nid'], $account-> uid, 'delete');
+    drupal_set_message('User deleted from node/' . $gig['nid']);
   }
-  else {
-    $is_speler = 'is geen speler';
+}
+
+/**
+ * Implements hook_user_update().
+ * TODO - combineren met hook_user_delete
+ */
+function gigplanning_user_update(&$edit, $account, $category) {
+  if ($account-> original-> status AND !$account-> status) {
+    // DEBUG drupal_Set_message('status changed from (active) ' . $account-> original-> status . ' to (blocked) ' . $account-> status);
+    $gigs = gp_get_next_gigs();
+    foreach($gigs as $gig) {
+      gp_set_db($gig['nid'], $account-> uid, 'delete');
+      drupal_set_message('User deleted from node/' . $gig['nid']);
+    }
   }
-  drupal_set_message('nieuwe user '. '<br>' .
-      'id = ' . $account->   uid . '<br>' .
-      'naam = ' . $account-> name . '<br>' .
-      'status = ' . $account-> status . '<br>' .
-      $roles);
 }
 
 function _gp_user_maint($uid, $nid) {
