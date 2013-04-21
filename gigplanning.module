@@ -507,7 +507,7 @@ function is_actieve_speler($uid) {
 // TODO sario link en gp_handmatig link theme naar theme-function
 function sario_link($node_id) {
   global $user;
-  if (user_access('send reminder') || ($user-> nid == 1)) {
+  if (user_access('send reminder') || ($user-> uid == 1)) {
     $link = l('Handmatige reminder versturen', 'optreden/reminder/'. $node_id);
     return '<div class = "gp-simple-link">'. $link . '</div>';
   }
@@ -516,7 +516,7 @@ function sario_link($node_id) {
 //een link om handmatig de bezetting in te vullen
 function gp_handmatig_link($nid) {
   global $user;
-  if (user_access('send reminder') || ($user-> nid == 1)) {
+  if (user_access('send reminder') || ($user-> uid == 1)) {
     $link = l('Handmatig bezetting corrigeren', 'optreden/handmatig/'. $nid);
     return '<div class = "gp-simple-link">'. $link . '</div>';
   }
@@ -1330,10 +1330,14 @@ function _gp_user_data($uid) {
 
 /* returns HTML for the Yes | No | Maybe link above gig table */
 function _gp_reactie_balk($uid, $maybe, $node_id, $speel_status, $stage) {
+  $confirm_window = 'if(!confirm("Are you shure?")){return false;}';
   $maybe_link_none =  l(t('Maybe'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/vraagteken/' . $stage, array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'use-ajax reactie-buttons-button', 'style' => 'display:none;'))) . '</div>';
   $maybe_link      = l(t('Maybe'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/vraagteken/' . $stage, array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'use-ajex reactie-buttons-button' ))) . '</div>';
   $yes_link_display_none = l(t('Yes'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid .'/ja/' . $stage, array('attributes' => array('id' => 'reactie-balk-ja',  'class' => 'use-ajax reactie-buttons-button','style' => 'display:none;')));
-  $yes_link = l(t('Yes'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid .'/ja/' . $stage, array('attributes' => array('id' => 'reactie-balk-ja', 'class' => 'use-ajax reactie-buttons-button')));
+  $yes_link = l(
+    t('Yes'),
+      'optreden/changestatus/nojs/'. $node_id .'/'. $uid .'/ja/' . $stage,
+      array('attributes' => array('onclick' => $confirm_window, 'id' => 'reactie-balk-ja', 'class' => 'use-ajax reactie-buttons-button')));
   $no_link_display_none = l(t('No'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/nee/' . $stage, array('attributes' => array('id' => 'reactie-balk-nee', 'style' => 'display:none;', 'class' => 'use-ajax reactie-buttons-button' )));
   $no_link = l(t('No'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/nee/' . $stage, array('attributes' => array('id' => 'reactie-balk-nee', 'class' => 'use-ajax reactie-buttons-button' )));
   switch ($speel_status) {
