@@ -116,6 +116,14 @@ function gigplanning_menu() {
     'page callback' => 'gigplanning_users_maintenance',
     'access arguments' => array('administer site configuration'),
   );
+
+  $items['gp_modal/%ctools_js/form/%/%/%/%'] = array(
+      'title' => 'AJAX modal dialog',
+      'page callback' => 'gp_modal_popup',
+      'page arguments' => array(1,3,4,5,6),
+      'access callback' => TRUE,
+      'type' => MENU_CALLBACK,
+  );
   return $items;
 }
 
@@ -153,7 +161,7 @@ function _gp_aanw_img($aanw) {
  * $type: "repetitie" unsets unnessesary sections
  */
 function _gp_secties($repetitie = TRUE) {
-  $sql= "SELECT DISTINCT(value) FROM profile_value WHERE fid = :d ORDER BY value ASC";
+  $sql= "SELECT DISTINCT(`value`) FROM profile_value WHERE fid = :d ORDER BY `value` ASC";
   $result = db_query($sql, array(':d' => variable_get('gigplanning_section', 'profile-sectie')));
   $rows = array();
   while ($row = $result-> fetchAssoc()) {
@@ -215,9 +223,9 @@ function _gp_repetitie_user_list_sql() {
         //  LIMIT ':limit'";
 }
 
-function gp_optreden_changestatus($ajax, $gig_id, $speler_id, $new_status, $stage) {
+function gp_optreden_changestatus($ajax, $gig_id, $speler_id, $new_status, $stage, $maybe_option) {
   //debug  echo $ajax . ' | ' . $gig_id . ' | ' . $speler_id . ' | ' . $new_status . ' | ' . $stage ; exit();
-  _gp_set_db($gig_id, $speler_id, 'edit', $new_status);
+  gp_set_db($gig_id, $speler_id, 'edit', $new_status);
   switch ($new_status) {
       case 'ja':
         $reactie_text = t('Je hebt je opgegeven voor dit optreden');
@@ -455,7 +463,7 @@ function gp_set_db($nid, $id, $mode, $speel_status = 'geenreactie') {
               array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => $speel_status));
      break;
     case 'edit':
-      $result = db_query("SELECT COUNT(bezid) FROM {gp_optredens} WHERE nid = ':nid' AND uid = ':uid'", array(':nid' => $nid, ':uid' => $id))->fetchField;
+      $result = db_query("SELECT COUNT(bezid) FROM {gp_optredens} WHERE nid = ':nid' AND uid = ':uid'", array(':nid' => $nid, ':uid' => $id))->fetchField();
       if (!$result) {
         db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
                    VALUES (:nid, :uid, :speel_status)",
@@ -1330,36 +1338,48 @@ function _gp_user_data($uid) {
 
 /* returns HTML for the Yes | No | Maybe link above gig table */
 function _gp_reactie_balk($uid, $maybe, $node_id, $speel_status, $stage) {
-  $confirm_window = 'if(!confirm("Are you shure?")){return false;}';
-  $maybe_link_none =  l(t('Maybe'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/vraagteken/' . $stage, array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'use-ajax reactie-buttons-button', 'style' => 'display:none;'))) . '</div>';
-  $maybe_link      = l(t('Maybe'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/vraagteken/' . $stage, array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'use-ajex reactie-buttons-button' ))) . '</div>';
-  $yes_link_display_none = l(t('Yes'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid .'/ja/' . $stage, array('attributes' => array('id' => 'reactie-balk-ja',  'class' => 'use-ajax reactie-buttons-button','style' => 'display:none;')));
-  $yes_link = l(
-    t('Yes'),
-      'optreden/changestatus/nojs/'. $node_id .'/'. $uid .'/ja/' . $stage,
-      array('attributes' => array('onclick' => $confirm_window, 'id' => 'reactie-balk-ja', 'class' => 'use-ajax reactie-buttons-button')));
-  $no_link_display_none = l(t('No'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/nee/' . $stage, array('attributes' => array('id' => 'reactie-balk-nee', 'style' => 'display:none;', 'class' => 'use-ajax reactie-buttons-button' )));
+  ctools_include('ajax');
+  ctools_include('modal');
+  ctools_include('plugins');
+  ctools_modal_add_js();
+  $gp_modal_style = _gp_modal_style();
+  drupal_add_js($gp_modal_style, 'setting');
+  $gp_yes_path = $node_id .'/'. $uid . '/' . $stage . '/' . $maybe;
+  $yes_link = 
+    ctools_modal_text_button(t('Yes'),
+      'gp_modal/nojs/form/' . $gp_yes_path,
+        t('Ja, ik doe mee'),
+          'ctools-modal-gp-modal-style reactie-balk-ja reactie-buttons-button');
+						
+ // $maybe_link_none =  l(t('Maybe'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/vraagteken/' . $stage, array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'use-ajax reactie-buttons-button', 'style' => 'display:none;'))) . '</div>';
+  $maybe_link      = l(t('Maybe'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/vraagteken/' . $stage, array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'use-ajax reactie-buttons-button' ))) . '</div>';
+ // $yes_link_display_none = l(t('Yes'), $yes_link array('attributes' => array('id' => 'reactie-balk-ja',  'class' => 'use-ajax reactie-buttons-button','style' => 'display:none;')));
+
+//  $no_link_display_none = l(t('No'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/nee/' . $stage, array('attributes' => array('id' => 'reactie-balk-nee', 'style' => 'display:none;', 'class' => 'use-ajax reactie-buttons-button' )));
   $no_link = l(t('No'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/nee/' . $stage, array('attributes' => array('id' => 'reactie-balk-nee', 'class' => 'use-ajax reactie-buttons-button' )));
-  switch ($speel_status) {
+  
+	switch ($speel_status) {
     case 'ja':
       $ret1 = '<span class = "reactie-balk-text">Je hebt je al opgegeven voor dit optreden</span>';
-      $ret2 = '<div id = "reactie-buttons">'.
-          $yes_link_display_none . $no_link_display_none . ($maybe ? $maybe_link_none : '') . '</div>';
+      $ret2 = '<div id = "reactie-buttons">&nbsp;</div>';
+         // $yes_link_display_none . $no_link_display_none . ($maybe ? $maybe_link_none : '')  . '</div>';
+				 
       break;
     case 'nee':
       $ret1 = '<span class = "reactie-balk-text">Je doet niet mee. Je kunt dit indien gewenst alsnog aanpassen</span>';
       $ret2 = '<div id = "reactie-buttons">'.
-          $yes_link .  $no_link_display_none . ($maybe ? $maybe_link : '') . '</div>';
+        //$yes_link .  $no_link_display_none . ($maybe ? $maybe_link : '') . '</div>';
+				$yes_link . ($maybe ? $maybe_link : '') . '</div>';
       break;
     case 'vraagteken':
       $ret1 = '<span class = "reactie-balk-text">Er staat voor een vraagteken voor dit optreden. Je kunt dit indien gewenst alsnog aanpassen</span>';
       $ret2 = '<div id = "reactie-buttons">'.
-          $yes_link . $no_link . ($maybe ? $maybe_link_none : '') . '</div>';
+          $yes_link . $no_link . ($maybe ? $maybe_link_none : ''). '</div>';
       break;
     case 'geenreactie':
       $ret1 = '<span class = "reactie-balk-text">Je hebt nog niet gereageerd. Gaarne dit alsnog doen</span>';
       $ret2 = '<div id = "reactie-buttons">'.
-          $yes_link . $no_link . ($maybe ? $maybe_link : '') . '</div>';
+          $yes_link . $no_link . ($maybe ? $maybe_link : '')  . '</div>';
       break;
     default:
       $ret1 = "default switch - case";
@@ -1375,4 +1395,59 @@ function gigplanning_preprocess_node(&$variables) {
   if ($variables['type'] == 'nftr_nieuws') {
 
   }
+}
+
+function gp_modal_popup($js = NULL, $nid, $uid, $stage, $maybe_option) {  
+  // degrade to no js
+  if(!$js) {
+    return drupal_get_form('gp_yes_modal_form');
+  }
+  ctools_include('modal');
+  ctools_include('ajax');
+  $form_state = array(
+      'title' => t('Weet je zeker...'),
+      'ajax' => TRUE,
+  );
+	//$redirect_path =  'optreden/changestatus/ajax/'. $nid .'/'. $uid .'/ja/' . $stage . '/' . $maybe_option;
+	$output = ctools_modal_form_wrapper('gp_yes_modal_form', $form_state);
+  if (!empty($form_state['executed'])) {
+    // We'll just overwrite the form output if it was successful.
+    $output = array();
+		$output[] = ctools_modal_command_dismiss();
+		//$output[] = ctools_ajax_command_redirect($redirect_path);
+    //drupal_goto($redirect_path);
+		gp_optreden_changestatus('ajax', $nid, $uid, 'ja', $stage, $maybe_option);
+		$output[] = ctools_ajax_command_reload();
+	}
+  print ajax_render($output);
+  exit;
+}
+
+function gp_yes_modal_form($form, &$form_state, $gp_path) {
+	$form['confirm yes'] = array(
+	  '#markup' => '<p>' .  t('Een YES is definitief en kan uitsluitend door de site administrator worden teruggedraaid. Weet je zeker dat je kunt?') . $form_state['redirect'] .  '</p>',
+		);
+
+  $form['submit ja'] = array(
+      '#type' => 'submit',
+      '#value' => t('Yes'),
+  );
+  return $form;
+}
+
+function gp_yes_modal_form_submit($form, &$form_state) {
+	//$form_state['rebuild'] = TRUE;
+}
+
+function _gp_modal_style() {
+	 return array(
+      'gp-modal-style' => array(
+          'modalSize' => array(
+              'type' => 'fixed',
+              'width' => 350,
+              'height' => 250,
+          ),
+          'animation' => 'fadeIn',
+      ),
+  );
 }

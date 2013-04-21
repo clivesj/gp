@@ -7,9 +7,11 @@ div.status-ja { background:url(aanw_Ja.png) no-repeat center;}
 div.status-nee { background:url(aanw_Nee.png) no-repeat center;}
 div.podium-link { background-color: #FFFFDD; border: 1px solid #FFCC33; border-radius: 4px 4px 4px 4px; float:right; font-size: 0.7em; line-height: 1em; padding: 4px;}
 #reactie-balk-ja,
+.reactie-balk-ja, 
 #reactie-balk-nee,
 #reactie-balk-vraagteken { color: #FFF; border: 1px solid #000; border-radius: 4px 4px 4px 4px; float:left; font-size: 0.7em; line-height: 1em; padding: 4px; margin:0px 4px 2px 0px;}
-#reactie-balk-ja { background-color: #00CC33;}
+#reactie-balk-ja,
+.reactie-balk-ja { background-color: #00CC33;}
 #reactie-balk-nee { background-color: #FF3333;}
 #reactie-balk-vraagteken { background-color: #999999;}
 
@@ -113,7 +115,7 @@ div.td-img {text-align:center;}
 #bezetting { font-weight:bold; margin-top: 2px; width:100%; }
 #bezetting .div { border:#666 thick;}
 #bezetting .sectie-head {  width: 100%; text-align: center; background-color: #e8e8e8; border-bottom: #c2c2c2 1px solid;
-color: rgb(119, 135, 156); padding: 2px 0px;
+color: #80C7A3 ; padding: 2px 0px;
 }
 #bezetting .row { width: 100%; /*border: #999 1px solid;*/}
 #col1, #col2, #col3, #col4 {width:24.5%; float: left; border: #c2c2c2 1px solid;} /*border-right: #999 3px solid;}*/
