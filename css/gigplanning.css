@@ -1,6 +1,6 @@
 /* CSS Document */
 
-#manual-remind-table td {vertical-align:top};
+#manual-remind-table td {vertical-align:top;}
 
 div.aanw-widget { text-align:center; background:url(aanw_Ja.png) no-repeat center;}
 div.status-ja { background:url(aanw_Ja.png) no-repeat center;}
@@ -114,9 +114,15 @@ div.td-img {text-align:center;}
 /* ------------------------------------------------*/
 #bezetting { font-weight:bold; margin-top: 2px; width:100%; }
 #bezetting .div { border:#666 thick;}
-#bezetting .sectie-head {  width: 100%; text-align: center; background-color: #e8e8e8; border-bottom: #c2c2c2 1px solid;
-color: #80C7A3 ; padding: 2px 0px;
+#bezetting .sectie-head {  
+  width: 100% !important; text-align: center; 
+	/*color: #333; text-transform:capitalize; */
+	padding: 5px 0px !important;
+	margin-bottom:0px !important;
+
+
 }
+
 #bezetting .row { width: 100%; /*border: #999 1px solid;*/}
 #col1, #col2, #col3, #col4 {width:24.5%; float: left; border: #c2c2c2 1px solid;} /*border-right: #999 3px solid;}*/
 .name-row {width: 100%; overflow: hidden;}
@@ -197,3 +203,23 @@ font-variant: small-caps;
 font-weight: 800;
 }
 
+/*  modal form ----------- */
+div.ctools-modal-content {
+  /*background: #e7e7e7 !important;  */
+  color: #330 !important;
+	font-size: 1.2em;
+  border: 1px solid #80C7A3 !important;
+  text-align: center !important;}
+
+div.ctools-modal-content .modal-header {
+  background-color: #CCC !important;}
+	
+div.ctools-modal-content a.close img {
+position: relative;
+top: 2px;}
+
+div.ctools-modal-content .modal-header,
+div.ctools-modal-content .modal-content{
+  text-align: center;}
+div.ctools-modal-content .modal-content p {
+	text-align: left;}

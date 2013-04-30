@@ -108,14 +108,14 @@ function gigplanning_menu() {
     'access arguments' => array('administer site configuration'),
     'file' => 'gigplanning.admin.inc',
   );
-  $items['gp/sync_sections'] = array(
+/*  $items['gp/sync_sections'] = array(
     'page callback' => 'gigplanning_sync_sections',
     'access arguments' => array('administer site configuration'),
   );
   $items['gp/user_maintenance'] = array(
     'page callback' => 'gigplanning_users_maintenance',
     'access arguments' => array('administer site configuration'),
-  );
+  );*/
 
   $items['gp_modal/%ctools_js/form/%/%/%/%'] = array(
       'title' => 'AJAX modal dialog',
@@ -245,6 +245,19 @@ function gp_optreden_changestatus($ajax, $gig_id, $speler_id, $new_status, $stag
   );
 }
 
+/**
+ * returns an array of players-uid for this gig
+ */
+function gp_players_this_gig($node) {
+  $ids = array();
+	$sql = "SELECT uid FROM {gp_optredens} where nid = :nid";
+	$result = db_query($sql, array(':nid' => $node-> nid));
+	while ($arr = $result-> fetchAssoc()) {
+	  $ids[] = $arr['uid'];
+	}
+	return $ids;
+}
+
 /*
  * pv.fid bevat de waarde voor "Sectie"
  * $nid, nid to check which players to exclude from gig
@@ -362,6 +375,7 @@ function gp_get_next_gigs() {
 
 /**
  * Implements hook_node_insert().
+ * TODO: Language options oplossen ipv 'und'
  */
 function gigplanning_node_insert($node) {
   if ($node-> type == "optreden") {
@@ -386,7 +400,7 @@ function gigplanning_node_insert($node) {
     foreach ($ids as $key => $id) {
       //gegevens opslaan in tabel voor gegevens bezetting to DB
       gp_set_db($node-> nid, $id, 'insert', 'geenreactie');
-      $account = user_load($id);
+      $account = user_load($id, TRUE);
       $params['account'] = $account;
       //print_r($account);exit();
       drupal_mail('gigplanning', 'nwe_optreden', $account->mail, user_preferred_language($account), $params);
@@ -398,9 +412,8 @@ function gigplanning_node_insert($node) {
  * Implements hook_node_update().
  */
 function gigplanning_node_update($node) {
-  /*
   if ($node-> type == "optreden") {
-    if ($node->field_verz_not[0]['value'] == "ja") {
+    if ($node->field_verzend_e_mail['und'][0]['value']) {
       $verzend = TRUE;
     }
     else {
@@ -408,31 +421,33 @@ function gigplanning_node_update($node) {
     }
     global $base_url;
     // debug -   print_r($node);
-    $ids = gp_get_all_players_uid($node);
+   // $ids = gp_get_all_players_uid($node);
+	 $ids = gp_players_this_gig($node);
     // debug -  print_r($ids);
     foreach ($ids as $id) {
-      gp_bezetting_db($node-> nid, $id, 'edit');
+      //gegevens opslaan in tabel voor gegevens bezetting to DB
+      gp_set_db($node-> nid, $id, 'edit');
       if ($verzend) {
         // prepare mail
         $account = user_load($id);
         $params['account'] = $account;
         $params['optreden_titel'] = $node-> title;
-        $params['optreden'] = "Datum optreden: ". substr($node-> field_datum[0]['value'], 0, 10) ."\n\n";
-        $params['optreden'] .= "De gevens van dit optreden zijn aangepast.\nBijzonderheden:\n" . $node-> field_bijzonderheden[0]['value'] . "\n\n" . "Selecteer onderstaande link voor meer informatie\n\n";
+        $params['optreden'] = "Datum optreden: ". substr($node-> field_datum['und'][0]['value'], 0, 10) ."\n\n";
+        $params['optreden'] .= "De gevens van dit optreden zijn aangepast.\nBijzonderheden:\n" . $node-> field_bijzonderheden['und'][0]['value'] . "\n\n" . "Selecteer onderstaande link voor meer informatie\n\n";
         $params['node_url'] = $base_url . "/node/". $node-> nid;
         $params['afz'] = gp_idtoname($node-> uid);
         drupal_mail('gigplanning', 'update_optreden', $account->mail, user_preferred_language($account), $params);
       }
     }
     if (!$verzend) {
-     $sql ="UPDATE content_type_optreden SET field_verz_not_value = :field_value WHERE :nid";
-     db_query($sql, array(':field_value' => "ja", ':nid' => $node ->nid));
+     $sql ="UPDATE {field_data_field_verzend_e_mail} SET field_verzend_e_mail_value = :field_value WHERE :nid";
+     db_query($sql, array(':field_value' => 1, ':nid' => $node ->nid));
      drupal_set_message(t("No email notifications send for this update"));
    }
    //remove players from db that are not anymore present in giglist
+	 // TODO - nut hiervan controleren
    gp_bezetting_remove_ghosts($ids, $node-> nid);
   }
-  */
 }
 
 /**
@@ -682,6 +697,7 @@ function gigplanning_cron () { /*
 function gp_manual_remind_mail($name_arr, $mail_text, $nid) {
   global $user;
   $params['tekst'] = $mail_text;
+		$params['afz'] = $user-> name;
   //$params['from'] = $user-> mail;
   foreach ($name_arr as $naam){
     $account = user_load(array('name' => check_plain($naam)));
@@ -705,12 +721,12 @@ function gp_remind_mail($uid, $optreden_id, $diff) {
   else {
     return null;
   }
-  $account = user_load($uid);
+  $account = user_load($uid, TRUE);
   $params['optreden_id'] = $optreden_id;
   $params['remind'] = $diff;
   $params['account'] = $account;
   $params['sql'] = $dum;
-  drupal_mail('gigplanning', 'crontest', $account->mail , user_preferred_language($account), $params);
+  drupal_mail('gigplanning', 'crontest', $account-> mail , user_preferred_language($account), $params);
 }
 
 function gp_select_players_to_remind($optreden_id, $diff) {
@@ -754,37 +770,37 @@ function gigplanning_mail($key, &$message, $params) {
   $language = $message['language'];
  // $variables = user_mail_tokens($params['account'], $language);
   $footer = "Met vriendelijke groeten\n\n" .$params['afz'] ."\n**********\nDit is een automatisch bericht van " . variable_get('gigplanning_email_from_name', 'Gigplanning') . "\nReageren d.m.v. \"reply\" of \"beantwoorden\" is niet mogelijk";
+	$message['body'] = array();
   switch ($key) {
   case 'crontest':
     $message['subject'] = "Reactie optreden: Deadline loopt af";
-    $message['body'] = t("Beste !username\n\n"); // TODO $variables, $language->language);
-    $message['body'] .= "De deadline voor het optreden \n" . $base_url . "/node/". $params['optreden_id'] ."\n".
+    $message['body'][] = t("Beste speler\n\n"); // TODO $variables, $language->language); !username
+    $message['body'][] = "De deadline voor het optreden \n" . $base_url . "/node/". $params['optreden_id'] ."\n".
         $params['verloopt'] ."\n\nGaarne zo snel mogelijk laten weten of je wel of niet kunt\n\n". $params['list'] ."\n\n";
-    $message['body'] .= $footer;
+    $message['body'][] = $footer;
     break;
   case 'nwe_optreden':
     $message['subject'] = "Aanvraag optreden: ". $params['optreden_titel'];
-    $message['body'] = t("Beste !username\n\nEr is een aanvraag voor een optreden.
+    $message['body'][] = t("Beste speler\n\nEr is een aanvraag voor een optreden.
           \nGaarne via onderstaande link op de website aangeven of je mee kunt doen.\n\n"); // TODO, $variables, $language->language);
-    $message['body'] .= $params['node_url'] ."\n\n";
-    $message['body'] .= $params['optreden'] ."\n";
-    $message['body'] .= $footer;
+    $message['body'][] = $params['node_url'] ."\n\n";
+    $message['body'][] = $params['optreden'] ."\n";
+    $message['body'][]= $footer;
+		//echo($message['body']);exit();
     break;
   case 'update_optreden':
     $message['subject'] = "Update: ". $params['optreden_titel'];
-    $message['body'] = t("Beste !username\n\n"); // TODO , $variables, $language->language);
-    $message['body'] .= $params['optreden'] ."\n";
-    $message['body'] .= $params['node_url'] ."\n\n";
-    $message['body'] .= $footer;
+    $message['body'][] = t("Beste speler\n"); // TODO , $variables, $language->language);
+    $message['body'][] = $params['optreden'] ."\n";
+    $message['body'][] = $params['node_url'] ."\n";
+    $message['body'][] = $footer;
     break;
   case 'manual_remind_mail':
     $message['subject'] = "Reminder voor optreden";
-    $message['body'] = $params['tekst'] ."\n\n";
+    $message['body'][] = $params['tekst'] ."\n\n";
     break;
   }
 }
-
-
 
 function deel_bezetting_arr($optreden_id, $speel_status){
   $sql = "SELECT
@@ -1201,7 +1217,7 @@ function _gp_gig_table_get_variables($nid) {
 }
 
 function theme_gp_gig_table($variables) {
-  //DEBUG   print_r($variables);exit;
+  //DEBUG 	print_r($variables);exit;
   global $user;
   $uid = $user-> uid;
   $maybe = $variables['maybe'];
@@ -1216,6 +1232,7 @@ function theme_gp_gig_table($variables) {
     $speel_status = $variables['sections'][$variables['user_section']]['players'][$uid]['speel_status'];
     $on_stage_this_gig = $variables['sections'][$variables['user_section']]['players'][$uid]['on_stage'];
     $output_rb = _gp_reactie_balk($uid, $maybe, $node_id, $speel_status, $on_stage_this_gig);
+		//debug echo(' uid : ' . $uid . ' maybe : ' . $maybe . ' nid : ' . $node_id . ' speel : ' . $speel_status . ' stage : ' . $on_stage_this_gig);exit();
   }
 
   // DEBUG print_r($variables); exit;
@@ -1344,6 +1361,11 @@ function _gp_reactie_balk($uid, $maybe, $node_id, $speel_status, $stage) {
   ctools_modal_add_js();
   $gp_modal_style = _gp_modal_style();
   drupal_add_js($gp_modal_style, 'setting');
+	drupal_add_js(array(
+    'CToolsModal' => array(
+      'closeText' => '',
+     )
+    ), 'setting');
   $gp_yes_path = $node_id .'/'. $uid . '/' . $stage . '/' . $maybe;
   $yes_link = 
     ctools_modal_text_button(t('Yes'),
