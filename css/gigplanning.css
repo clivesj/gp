@@ -112,12 +112,12 @@ div.td-Neelink {background-color: #FF2424;}
 div.td-Neelink, div.td-Jalink { line-height:1em; width: 24px; float:left; border-radius: 4px 4px 4px 4px; font-size:0.7em;}
 div.td-img {text-align:center;}
 /* ------------------------------------------------*/
-#bezetting { font-weight:bold; margin-top: 2px; width:100%; }
+#bezetting { /*font-weight:bold;*/ margin-top: 2px; width:100%; }
 #bezetting .div { border:#666 thick;}
 #bezetting .sectie-head {  
   width: 100% !important; text-align: center; 
 	/*color: #333; text-transform:capitalize; */
-	padding: 5px 0px !important;
+	padding: 2px 0px !important;
 	margin-bottom:0px !important;
 
 
@@ -125,7 +125,7 @@ div.td-img {text-align:center;}
 
 #bezetting .row { width: 100%; /*border: #999 1px solid;*/}
 #col1, #col2, #col3, #col4 {width:24.5%; float: left; border: #c2c2c2 1px solid;} /*border-right: #999 3px solid;}*/
-.name-row {width: 100%; overflow: hidden;}
+.name-row {width: 101%; overflow: hidden;}
 .ja { background-color: #0C3;}
 .nee { background-color:#F33; }
 .geenreactie { background-color: #FFF;}
