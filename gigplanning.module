@@ -161,7 +161,7 @@ function _gp_aanw_img($aanw) {
  * $type: "repetitie" unsets unnessesary sections
  */
 function _gp_secties($repetitie = TRUE) {
-  $sql= "SELECT DISTINCT(`value`) FROM profile_value WHERE fid = :d ORDER BY `value` ASC";
+  $sql= "SELECT DISTINCT(`value`) FROM {profile_value} WHERE fid = :d ORDER BY `value` ASC";
   $result = db_query($sql, array(':d' => variable_get('gigplanning_section', 'profile-sectie')));
   $rows = array();
   while ($row = $result-> fetchAssoc()) {
@@ -177,15 +177,19 @@ function _gp_secties($repetitie = TRUE) {
 function gp_repetitie_list($limit) {
   $sql = "SELECT
     n.nid, title,
-    r.field_soort_repetitie_value as soort,
-    r.field_status_repetitie_value as status_rep,
-    r.field_repetitie_bijzonderheden_value as bijz,
-    DATE(r.field_datum_repetitie_value) as sort_date,
-    DATE_FORMAT(DATE(r.field_datum_repetitie_value), '%e %b') as datum,
-    DAYNAME(r.field_datum_repetitie_value) as dag
+    fdfsr.field_soort_repetitie_value as soort,
+    fdfstatr.field_status_repetitie_value as status_rep,
+    fdfrb.field_repetitie_bijzonderheden_value as bijz,
+    DATE(fdfdr.field_datum_repetitie_value) as sort_date,
+    DATE_FORMAT(fdfdr.field_datum_repetitie_value, '%e %b') as datum,
+    DAYNAME(fdfdr.field_datum_repetitie_value) as dag
+
       FROM node n
-          LEFT JOIN content_type_repetitie r on (n.nid = r.nid)
-          WHERE r.field_datum_repetitie_value >= CURDATE() AND type = 'repetitie'
+          LEFT JOIN field_data_field_datum_repetitie fdfdr on (n.nid = fdfdr.entity_id)
+          LEFT JOIN field_data_field_soort_repetitie fdfsr on (n.nid = fdfsr.entity_id)
+          LEFT JOIN field_data_field_status_repetitie fdfstatr on (n.nid = fdfstatr.entity_id)
+          LEFT JOIN field_data_field_repetitie_bijzonderheden fdfrb on (n.nid = fdfrb.entity_id)
+          WHERE fdfdr.field_datum_repetitie_value >= CURDATE() AND type = 'repetitie'
         ORDER BY sort_date"
         ;
   $result = db_query_range($sql,0,$limit);
@@ -207,20 +211,21 @@ function _gp_rep_user_list($user_id, $limit) {
 }
 
 function _gp_repetitie_user_list_sql() {
-  return  "SELECT
-      n.nid,
-      title,
-      r.field_soort_repetitie_value as soort,
-    DATE(r.field_datum_repetitie_value) as sort_date,
-      DATE_FORMAT(DATE(r.field_datum_repetitie_value), '%%d %%M') as datum,
-      DAYNAME(r.field_datum_repetitie_value) as dag,
-      aanw, urid
-    FROM node n
-        LEFT JOIN content_type_repetitie r on (n.nid = r.nid)
-        LEFT JOIN gp_repetitie_user g on (n.nid = g.nid AND g.uid = :uid)
-        WHERE r.field_datum_repetitie_value >= CURDATE() AND type = :type
+  return "SELECT
+    n.nid, title,
+    fdfsr.field_soort_repetitie_value as soort,
+    DATE(fdfdr.field_datum_repetitie_value) as sort_date,
+    DATE_FORMAT(fdfdr.field_datum_repetitie_value, '%d %M') as datum,
+    DAYNAME(fdfdr.field_datum_repetitie_value) as dag,
+    aanw, urid
+      FROM node n
+          LEFT JOIN field_data_field_datum_repetitie fdfdr on (n.nid = fdfdr.entity_id)
+          LEFT JOIN field_data_field_soort_repetitie fdfsr on (n.nid = fdfsr.entity_id)
+          LEFT JOIN field_data_field_status_repetitie fdfstatr on (n.nid = fdfstatr.entity_id)
+          LEFT JOIN field_data_field_repetitie_bijzonderheden fdfrb on (n.nid = fdfrb.entity_id)
+          LEFT JOIN gp_repetitie_user g on (n.nid = g.nid AND g.uid = :uid)
+WHERE fdfdr.field_datum_repetitie_value >= CURDATE() AND type = :type
         ORDER BY sort_date";
-        //  LIMIT ':limit'";
 }
 
 function gp_optreden_changestatus($ajax, $gig_id, $speler_id, $new_status, $stage, $maybe_option) {
@@ -420,13 +425,13 @@ function gigplanning_node_update($node) {
       $verzend = FALSE;
     }
     global $base_url;
-    // debug -   print_r($node);
+    // debug -		print_r($node);exit();
    // $ids = gp_get_all_players_uid($node);
 	 $ids = gp_players_this_gig($node);
     // debug -  print_r($ids);
     foreach ($ids as $id) {
       //gegevens opslaan in tabel voor gegevens bezetting to DB
-      gp_set_db($node-> nid, $id, 'edit');
+      /*gp_set_db($node-> nid, $id, 'edit'); hoeft niet igv edit*/
       if ($verzend) {
         // prepare mail
         $account = user_load($id);
@@ -478,12 +483,11 @@ function gp_set_db($nid, $id, $mode, $speel_status = 'geenreactie') {
               array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => $speel_status));
      break;
     case 'edit':
-      $result = db_query("SELECT COUNT(bezid) FROM {gp_optredens} WHERE nid = ':nid' AND uid = ':uid'", array(':nid' => $nid, ':uid' => $id))->fetchField();
-      if (!$result) {
-        db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
+		   $result = db_query("DELETE FROM {gp_optredens} WHERE uid = :uid AND nid = :nid", array(':uid' => $id, ':nid' => $nid));
+			 $res = db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
                    VALUES (:nid, :uid, :speel_status)",
               array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => $speel_status));
-      }
+		  
       break;
     case 'delete':
       $result = db_query("DELETE FROM {gp_optredens} WHERE uid = :uid AND nid = :nid", array(':uid' => $id, ':nid' => $nid));
@@ -824,6 +828,7 @@ function deel_bezetting_arr($optreden_id, $speel_status){
  * RID 5 = 'vaste speler'. This is not hardcoded anymore
  */
 function _gp_sectie_spelers($sectie_naam) {
+	
   $sql = "SELECT u.name AS user_name
             FROM users u
               JOIN profile_value pv
@@ -837,7 +842,7 @@ function _gp_sectie_spelers($sectie_naam) {
   while ($row = $result -> fetchAssoc()) {
     $rows[] = $row['user_name'];
   }
-  //debug -   print_r($rows);
+  //debug -  	print_r($rows);exit;
   return $rows;
 }
 
@@ -1072,9 +1077,9 @@ function gigplanning_block_view($delta = '') {
 
   if ($delta == 'welkom') {
     global $user;
-    $website = variable_get('gp_band_website', 'http://www.gigplanning.com');
-    $name = variable_get('gp_band_name', 'Gigplanning');
-    $output = t('This is the Gigplanning website for %band_name.<br />It is accessible for band members only. Please select <a href = @link>this link</a> to visit our public site', array('%band_name' => $name, '@link' => $website ));
+    $website = 'http://www.nightflighttorio.nl'; //variable_get('gp_band_website', 'http://www.gigplanning.com');
+    $name = 'Night Flight To Rio'; // TODO variable_get('gp_band_name', 'Gigplanning');
+    $output = t('This is the Gigplanning website for %band_name.<br />It is accessible for band members only. Please select <a href = @link>this link</a> to visit our public site.', array('%band_name' => $name, '@link' => $website ));
     if (is_actieve_speler($user-> uid)) {
       $output .= _gp_openstaande_optredens($user-> uid);
     }
