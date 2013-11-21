@@ -255,12 +255,12 @@ function gp_optreden_changestatus($ajax, $gig_id, $speler_id, $new_status, $stag
  */
 function gp_players_this_gig($node) {
   $ids = array();
-	$sql = "SELECT uid FROM {gp_optredens} where nid = :nid";
-	$result = db_query($sql, array(':nid' => $node-> nid));
-	while ($arr = $result-> fetchAssoc()) {
-	  $ids[] = $arr['uid'];
-	}
-	return $ids;
+  $sql = "SELECT uid FROM {gp_optredens} where nid = :nid";
+  $result = db_query($sql, array(':nid' => $node-> nid));
+  while ($arr = $result-> fetchAssoc()) {
+    $ids[] = $arr['uid'];
+  }
+  return $ids;
 }
 
 /*
@@ -425,9 +425,9 @@ function gigplanning_node_update($node) {
       $verzend = FALSE;
     }
     global $base_url;
-    // debug -		print_r($node);exit();
+    // debug -    print_r($node);exit();
    // $ids = gp_get_all_players_uid($node);
-	 $ids = gp_players_this_gig($node);
+   $ids = gp_players_this_gig($node);
     // debug -  print_r($ids);
     foreach ($ids as $id) {
       //gegevens opslaan in tabel voor gegevens bezetting to DB
@@ -450,7 +450,7 @@ function gigplanning_node_update($node) {
      drupal_set_message(t("No email notifications send for this update"));
    }
    //remove players from db that are not anymore present in giglist
-	 // TODO - nut hiervan controleren
+   // TODO - nut hiervan controleren
    gp_bezetting_remove_ghosts($ids, $node-> nid);
   }
 }
@@ -483,11 +483,11 @@ function gp_set_db($nid, $id, $mode, $speel_status = 'geenreactie') {
               array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => $speel_status));
      break;
     case 'edit':
-		   $result = db_query("DELETE FROM {gp_optredens} WHERE uid = :uid AND nid = :nid", array(':uid' => $id, ':nid' => $nid));
-			 $res = db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
+       $result = db_query("DELETE FROM {gp_optredens} WHERE uid = :uid AND nid = :nid", array(':uid' => $id, ':nid' => $nid));
+       $res = db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
                    VALUES (:nid, :uid, :speel_status)",
               array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => $speel_status));
-		  
+      
       break;
     case 'delete':
       $result = db_query("DELETE FROM {gp_optredens} WHERE uid = :uid AND nid = :nid", array(':uid' => $id, ':nid' => $nid));
@@ -701,7 +701,7 @@ function gigplanning_cron () { /*
 function gp_manual_remind_mail($name_arr, $mail_text, $nid) {
   global $user;
   $params['tekst'] = $mail_text;
-		$params['afz'] = $user-> name;
+    $params['afz'] = $user-> name;
   //$params['from'] = $user-> mail;
   foreach ($name_arr as $naam){
     $account = user_load(array('name' => check_plain($naam)));
@@ -774,7 +774,7 @@ function gigplanning_mail($key, &$message, $params) {
   $language = $message['language'];
  // $variables = user_mail_tokens($params['account'], $language);
   $footer = "Met vriendelijke groeten\n\n" .$params['afz'] ."\n**********\nDit is een automatisch bericht van " . variable_get('gigplanning_email_from_name', 'Gigplanning') . "\nReageren d.m.v. \"reply\" of \"beantwoorden\" is niet mogelijk";
-	$message['body'] = array();
+  $message['body'] = array();
   switch ($key) {
   case 'crontest':
     $message['subject'] = "Reactie optreden: Deadline loopt af";
@@ -790,7 +790,7 @@ function gigplanning_mail($key, &$message, $params) {
     $message['body'][] = $params['node_url'] ."\n\n";
     $message['body'][] = $params['optreden'] ."\n";
     $message['body'][]= $footer;
-		//echo($message['body']);exit();
+    //echo($message['body']);exit();
     break;
   case 'update_optreden':
     $message['subject'] = "Update: ". $params['optreden_titel'];
@@ -828,7 +828,7 @@ function deel_bezetting_arr($optreden_id, $speel_status){
  * RID 5 = 'vaste speler'. This is not hardcoded anymore
  */
 function _gp_sectie_spelers($sectie_naam) {
-	
+  
   $sql = "SELECT u.name AS user_name
             FROM users u
               JOIN profile_value pv
@@ -842,7 +842,7 @@ function _gp_sectie_spelers($sectie_naam) {
   while ($row = $result -> fetchAssoc()) {
     $rows[] = $row['user_name'];
   }
-  //debug -  	print_r($rows);exit;
+  //debug -    print_r($rows);exit;
   return $rows;
 }
 
@@ -1222,7 +1222,7 @@ function _gp_gig_table_get_variables($nid) {
 }
 
 function theme_gp_gig_table($variables) {
-  //DEBUG 	print_r($variables);exit;
+  //DEBUG   print_r($variables);exit;
   global $user;
   $uid = $user-> uid;
   $maybe = $variables['maybe'];
@@ -1237,7 +1237,7 @@ function theme_gp_gig_table($variables) {
     $speel_status = $variables['sections'][$variables['user_section']]['players'][$uid]['speel_status'];
     $on_stage_this_gig = $variables['sections'][$variables['user_section']]['players'][$uid]['on_stage'];
     $output_rb = _gp_reactie_balk($uid, $maybe, $node_id, $speel_status, $on_stage_this_gig);
-		//debug echo(' uid : ' . $uid . ' maybe : ' . $maybe . ' nid : ' . $node_id . ' speel : ' . $speel_status . ' stage : ' . $on_stage_this_gig);exit();
+    //debug echo(' uid : ' . $uid . ' maybe : ' . $maybe . ' nid : ' . $node_id . ' speel : ' . $speel_status . ' stage : ' . $on_stage_this_gig);exit();
   }
 
   // DEBUG print_r($variables); exit;
@@ -1366,7 +1366,7 @@ function _gp_reactie_balk($uid, $maybe, $node_id, $speel_status, $stage) {
   ctools_modal_add_js();
   $gp_modal_style = _gp_modal_style();
   drupal_add_js($gp_modal_style, 'setting');
-	drupal_add_js(array(
+  drupal_add_js(array(
     'CToolsModal' => array(
       'closeText' => '',
      )
@@ -1377,7 +1377,7 @@ function _gp_reactie_balk($uid, $maybe, $node_id, $speel_status, $stage) {
       'gp_modal/nojs/form/' . $gp_yes_path,
         t('Ja, ik doe mee'),
           'ctools-modal-gp-modal-style reactie-balk-ja reactie-buttons-button');
-						
+            
  // $maybe_link_none =  l(t('Maybe'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/vraagteken/' . $stage, array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'use-ajax reactie-buttons-button', 'style' => 'display:none;'))) . '</div>';
   $maybe_link      = l(t('Maybe'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/vraagteken/' . $stage, array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'use-ajax reactie-buttons-button' ))) . '</div>';
  // $yes_link_display_none = l(t('Yes'), $yes_link array('attributes' => array('id' => 'reactie-balk-ja',  'class' => 'use-ajax reactie-buttons-button','style' => 'display:none;')));
@@ -1385,18 +1385,18 @@ function _gp_reactie_balk($uid, $maybe, $node_id, $speel_status, $stage) {
 //  $no_link_display_none = l(t('No'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/nee/' . $stage, array('attributes' => array('id' => 'reactie-balk-nee', 'style' => 'display:none;', 'class' => 'use-ajax reactie-buttons-button' )));
   $no_link = l(t('No'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/nee/' . $stage, array('attributes' => array('id' => 'reactie-balk-nee', 'class' => 'use-ajax reactie-buttons-button' )));
   
-	switch ($speel_status) {
+  switch ($speel_status) {
     case 'ja':
       $ret1 = '<span class = "reactie-balk-text">Je hebt je al opgegeven voor dit optreden</span>';
       $ret2 = '<div id = "reactie-buttons">&nbsp;</div>';
          // $yes_link_display_none . $no_link_display_none . ($maybe ? $maybe_link_none : '')  . '</div>';
-				 
+         
       break;
     case 'nee':
       $ret1 = '<span class = "reactie-balk-text">Je doet niet mee. Je kunt dit indien gewenst alsnog aanpassen</span>';
       $ret2 = '<div id = "reactie-buttons">'.
         //$yes_link .  $no_link_display_none . ($maybe ? $maybe_link : '') . '</div>';
-				$yes_link . ($maybe ? $maybe_link : '') . '</div>';
+        $yes_link . ($maybe ? $maybe_link : '') . '</div>';
       break;
     case 'vraagteken':
       $ret1 = '<span class = "reactie-balk-text">Er staat voor een vraagteken voor dit optreden. Je kunt dit indien gewenst alsnog aanpassen</span>';
@@ -1435,25 +1435,25 @@ function gp_modal_popup($js = NULL, $nid, $uid, $stage, $maybe_option) {
       'title' => t('Weet je zeker...'),
       'ajax' => TRUE,
   );
-	//$redirect_path =  'optreden/changestatus/ajax/'. $nid .'/'. $uid .'/ja/' . $stage . '/' . $maybe_option;
-	$output = ctools_modal_form_wrapper('gp_yes_modal_form', $form_state);
+  //$redirect_path =  'optreden/changestatus/ajax/'. $nid .'/'. $uid .'/ja/' . $stage . '/' . $maybe_option;
+  $output = ctools_modal_form_wrapper('gp_yes_modal_form', $form_state);
   if (!empty($form_state['executed'])) {
     // We'll just overwrite the form output if it was successful.
     $output = array();
-		$output[] = ctools_modal_command_dismiss();
-		//$output[] = ctools_ajax_command_redirect($redirect_path);
+    $output[] = ctools_modal_command_dismiss();
+    //$output[] = ctools_ajax_command_redirect($redirect_path);
     //drupal_goto($redirect_path);
-		gp_optreden_changestatus('ajax', $nid, $uid, 'ja', $stage, $maybe_option);
-		$output[] = ctools_ajax_command_reload();
-	}
+    gp_optreden_changestatus('ajax', $nid, $uid, 'ja', $stage, $maybe_option);
+    $output[] = ctools_ajax_command_reload();
+  }
   print ajax_render($output);
   exit;
 }
 
 function gp_yes_modal_form($form, &$form_state, $gp_path) {
-	$form['confirm yes'] = array(
-	  '#markup' => '<p>' .  t('Een YES is definitief en kan uitsluitend door de site administrator worden teruggedraaid. Weet je zeker dat je kunt?') . $form_state['redirect'] .  '</p>',
-		);
+  $form['confirm yes'] = array(
+    '#markup' => '<p>' .  t('Een YES is definitief en kan uitsluitend door de site administrator worden teruggedraaid. Weet je zeker dat je kunt?') . $form_state['redirect'] .  '</p>',
+    );
 
   $form['submit ja'] = array(
       '#type' => 'submit',
@@ -1463,11 +1463,11 @@ function gp_yes_modal_form($form, &$form_state, $gp_path) {
 }
 
 function gp_yes_modal_form_submit($form, &$form_state) {
-	//$form_state['rebuild'] = TRUE;
+  //$form_state['rebuild'] = TRUE;
 }
 
 function _gp_modal_style() {
-	 return array(
+   return array(
       'gp-modal-style' => array(
           'modalSize' => array(
               'type' => 'fixed',
@@ -1477,4 +1477,74 @@ function _gp_modal_style() {
           'animation' => 'fadeIn',
       ),
   );
+}
+
+// override core theme fumction user_admin_role, so we can
+// lock gp user roles
+function gigplanning_theme_registry_alter(&$theme_registry) {
+  $theme_registry['user_admin_roles']['function'] = '_gigplanning_user_admin_role_theme';
+} 
+
+function _gigplanning_user_admin_role_theme($variables) {
+ // $my_role_id = function_to_get_custom_role_id();
+   $vaste_speler = ($role = user_role_load_by_name('vaste speler')) ? $role->rid : NULL;
+  $invaller = ($role = user_role_load_by_name('invaller')) ? $role->rid : NULL;
+
+  $form = $variables['form'];
+
+  $header = array(t('Name'), t('Weight'), array(
+      'data' => t('Operations'),
+      'colspan' => 2,
+    ));
+  foreach (element_children($form['roles']) as $rid) {
+    $name = $form['roles'][$rid]['#role']->name;
+    $row = array();
+    if (in_array($rid, array(DRUPAL_ANONYMOUS_RID, DRUPAL_AUTHENTICATED_RID, $vaste_speler, $invaller))) {
+      $row[] = t('@name <em>(locked)</em>', array('@name' => $name));
+      $row[] = drupal_render($form['roles'][$rid]['weight']);
+      $row[] = '';
+      $row[] = l(t('edit permissions'), 'admin/people/permissions/' . $rid);
+    }
+    else {
+      $row[] = check_plain($name);
+      $row[] = drupal_render($form['roles'][$rid]['weight']);
+      $row[] = l(t('edit role'), 'admin/people/permissions/roles/edit/' . $rid);
+      $row[] = l(t('edit permissions'), 'admin/people/permissions/' . $rid);
+    }
+    $rows[] = array(
+      'data' => $row,
+      'class' => array('draggable'),
+    );
+  }
+  $rows[] = array(array(
+      'data' => drupal_render($form['name']) . drupal_render($form['add']),
+      'colspan' => 4,
+      'class' => 'edit-name',
+    ));
+
+  drupal_add_tabledrag('user-roles', 'order', 'sibling', 'role-weight');
+
+  $output = theme('table', array('header' => $header, 'rows' => $rows, 'attributes' => array('id' => 'user-roles')));
+  $output .= drupal_render_children($form);
+
+  return $output;
+}
+
+// Override menu function to prevent direct access to the locked user roles
+function gigplanning_menu_alter(&$items) {
+  $items['admin/people/permissions/roles/edit/%user_role']['access callback'] = 'gigpanning_user_roles_edit';
+  $items['admin/people/permissions/roles/delete/%user_role']['access callback'] = 'gigplanning_user_roles_edit';
+}
+
+function gigplanning_user_roles_edit($role) {
+  $vaste_speler = ($role = user_role_load_by_name('vaste speler')) ? $role->rid : NULL;
+  $invaller = ($role = user_role_load_by_name('invaller')) ? $role->rid : NULL;
+  if ($role->rid == DRUPAL_ANONYMOUS_RID || 
+    $role->rid == DRUPAL_AUTHENTICATED_RID ||
+    $role->rid == $vaste_speler ||
+    $role->rid == $invaller) {
+    return FALSE;
+  }
+
+  return user_access('administer permissions');
 }

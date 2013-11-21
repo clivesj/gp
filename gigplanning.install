@@ -14,9 +14,7 @@ function gigplanning_install() {
 	/* create gp user roles if not present */
 	$gp_roles = array('invaller', 'vaste speler');
 	foreach ($gp_roles as $name) {
-		drupal_set_message($name);
 	  if (!user_role_load_by_name($name)) {
-			drupal_set_message($name . " -role does not excist");
 		  $role = new stdClass();
       $role->name = $name;
       // $role->weight = 10;
