@@ -13,6 +13,19 @@ function gigplanning_install() {
   }
 }
 
+/* create gp user roles if not present */
+function gigplanning_update_7001() {
+	$gp_roles = array('invaller', 'vaste speler');
+	foreach ($gp_roles as $name) {
+	  if (!user_role_load_by_name($name)) {
+		  $role = new stdClass();
+      $role->name = $name;
+      // $role->weight = 10;
+      user_role_save($role);
+		}
+	}
+}
+
 function gigplanning_update_6001() {
   if (!db_table_exists('gp_section_size')) {
   $schema['gp_section_size'] = array(
