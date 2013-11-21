@@ -25,6 +25,23 @@ function gigplanning_install() {
 	}
 }
 
+/**
+ * implementation hook_uninstall 
+ */
+function gigplanning_uninstall() {
+	/* delete gp user roles if present */
+	$gp_roles = array('invaller', 'vaste speler');
+	foreach ($gp_roles as $name) {
+	  if (user_role_load_by_name($name)) {
+			user_role_delete($name);
+		}
+	}
+}
+
+function gigplanning_update_7101() {
+
+}
+		
 function gigplanning_update_6001() {
   if (!db_table_exists('gp_section_size')) {
   $schema['gp_section_size'] = array(
