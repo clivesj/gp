@@ -702,7 +702,9 @@ function gp_manual_remind_mail($name_arr, $mail_text, $nid) {
     $params['afz'] = $user-> name;
   //$params['from'] = $user-> mail;
   foreach ($name_arr as $naam){
-    $account = user_load(array('name' => check_plain($naam)));
+    //D6   $account = user_load(array('name' => check_plain($naam)));
+    //D7:
+    $account = user_load_by_name($naam);
     $params['account'] = $account;
     drupal_mail('gigplanning', 'manual_remind_mail', $account->mail .",". $user->mail , user_preferred_language($account), $params);
     drupal_set_message('Herinneringsmail verstuurd naar '. $naam);
