@@ -1,7 +1,7 @@
 <div id="optreden-node-form">
   <?php print render($form['title']); ?>
   <?php print render($form['field_status']); ?>
-  <div class = 'left-collumn'>
+  <div class = 'left-column'>
     <?php print render($form['field_datum']); ?>
     <?php print render($form['field_tijd']); ?>
     <?php print render($form['field_tijd_verzamelen']); ?>
@@ -9,7 +9,7 @@
 
      <?php print render($form['field_verzend_e_mail']); ?>
   </div>
-  <div class = 'right-collumn'>
+  <div class = 'right-column'>
      <?php print render($form['field_reageren']); ?>
      <?php print render($form['field_also_invite']); ?>
      <?php print render($form['field_invallers']); ?>

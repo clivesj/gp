@@ -146,6 +146,15 @@ img.gp-blog-pic { float:right;}
   }
 
 /* -----------------Content type node-optreden---------- */
+#optreden-node-form .left-column,
+#optreden-node-form .right-column {
+  float:left; width: 45%; }
+
+#optreden-node-form .left-column {
+  padding-right:10px; }
+
+#optreden-node-form .right-column {
+  overflow:hidden; }
 .node-optreden, .profile2-my-profile, .region-content {
   background-color: #FFF;
  /* max-width: 800px; */
