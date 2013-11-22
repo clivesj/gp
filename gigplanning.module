@@ -671,9 +671,7 @@ function gp_optreden_handmatig_form_submit($form, &$form_state) {
     }
     drupal_set_message('Gig presence manually adapted');
   }
-  else {
-    drupal_goto('node/' .$nid);
-  }
+  drupal_goto('node/' .$nid);
 }
 
 function gigplanning_cron () { /*

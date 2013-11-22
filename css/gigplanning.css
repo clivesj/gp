@@ -162,6 +162,28 @@ img.gp-blog-pic { float:right;}
   padding: 20px 20px;
 }
 
+#bezetting .sectie-head,
+#comments-title { 
+border:1px solid #e7e7e7; padding:5px 10px; display:block; overflow:hidden; margin:0 0 30px 0;
+/* background */
+background: #fdfdfd;
+/* IE10 */
+background-image: -ms-linear-gradient(top, #fdfdfd 0%, #efefef 100%);
+/* Mozilla Firefox */
+background-image: -moz-linear-gradient(top, #fdfdfd 0%, #efefef 100%);
+/* Opera */
+background-image: -o-linear-gradient(top, #fdfdfd 0%, #efefef 100%);
+/* Webkit (Safari/Chrome 10) */
+background-image: -webkit-gradient(linear, left top, left bottom, color-stop(0, #fdfdfd), color-stop(1, #efefef));
+/* Webkit (Chrome 11+) */
+background-image: -webkit-linear-gradient(top, #fdfdfd 0%, #efefef 100%);
+/* Proposed W3C Markup */
+background-image: linear-gradient(top, #fdfdfd 0%, #efefef 100%);
+/* IE6-9 */
+filter:  progid:DXImageTransform.Microsoft.gradient(startColorstr='#fdfdfd', endColorstr='#efefef');
+/* radius */
+/*-webkit-border-radius: 5px; -moz-border-radius: 5px; border-radius: 5px;*/
+}
 
 .node-repetitie .field-label, .node-optreden .field-label { display: inline-table; width: 160px;}
 .gp-line-above {border-top: 1px;}
