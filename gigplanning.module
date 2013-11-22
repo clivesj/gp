@@ -108,11 +108,11 @@ function gigplanning_menu() {
     'access arguments' => array('administer site configuration'),
     'file' => 'gigplanning.admin.inc',
   );
-/*  $items['gp/sync_sections'] = array(
+  $items['gp/sync_sections'] = array(
     'page callback' => 'gigplanning_sync_sections',
     'access arguments' => array('administer site configuration'),
   );
-  $items['gp/user_maintenance'] = array(
+  /*  $items['gp/user_maintenance'] = array(
     'page callback' => 'gigplanning_users_maintenance',
     'access arguments' => array('administer site configuration'),
   );*/
@@ -970,14 +970,15 @@ function gigplanning_requirements($phase) {
 function gigplanning_sync_sections() {
   $sections = gp_get_all_sections_full();
   foreach ($sections as $section) {
-    if (!$section['id']) { _gp_sync_section($section);}
+    if (!$section['id']) 
+      { _gp_sync_section($section);}
   }
   drupal_goto('/admin/reports/status');
 }
 
 function _gp_sync_section($section) {
-  $sql = "INSERT INTO {gp_section_size} (section_name, section_size) VALUES (':name', ':size')";
-  db_query($sql, array(':name' => $section['value'], ':size' => 0));
+  $sql = "INSERT INTO {gp_section_size} (section_name) VALUES (:name)";
+  db_query($sql, array(':name' => $section['value']));
 }
 
 function gp_sectie_lid($name, $arr) {

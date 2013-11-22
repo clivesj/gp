@@ -66,34 +66,33 @@ function gigplanning_flex_settings() {
   //debug -  print_r($sections);exit;
   $form['gigplanning_flex_sections'] = array (
     '#type' => 'checkboxes',
-  '#title' => 'Sections not always required for gigs',
-  '#description' => 'Sections marked here are flexible. They are not required for all gigs. You you determine per gig if they should be included or not.',
-  '#options' => $sections,
-  '#default_value' => variable_get('gigplanning_flex_sections', array()),
+    '#title' => 'Sections not always required for gigs',
+    '#description' => 'Sections marked here are flexible. They are not required for all gigs. You you determine per gig if they should be included or not.',
+    '#options' => $sections,
+    '#default_value' => variable_get('gigplanning_flex_sections', array()),
   );
   return system_settings_form($form);
 }
 
 function gigplanning_section_size_settings() {
   $sections_full = gp_get_all_sections_full();
+	//debug print_r($sections_full);exit();
   if (!empty($sections_full)) {
     foreach ($sections_full as $row) {
       $form['gigplanning_section_size_' . $row['id']] = array(
-      '#prefix' => "<div class = 'gp-section-size'>",
-      '#suffix' => '</div>',
-      '#type' => 'textfield',
-      '#title' => $row['value'],
-      '#length' => 2,
-      '#size' => 2,
-      '#default_value' => variable_get('gigplanning_section_size_' . $row['id'], 0),
-      '#description' => '0 = unlimited',
+        '#prefix' => "<div class = 'gp-section-size'>",
+        '#suffix' => '</div>',
+        '#type' => 'textfield',
+        '#title' => $row['value'],
+        '#length' => 2,
+        '#size' => 2,
+        '#default_value' => variable_get('gigplanning_section_size_' . $row['id'], 0),
+        '#description' => '0 = unlimited',
       );
-     }
-
+    }
   return system_settings_form($form);
   }
   else {
-  drupal_set_message ('no data loaded');
+    drupal_set_message ('no data loaded');
   }
-
 }
