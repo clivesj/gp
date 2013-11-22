@@ -846,13 +846,11 @@ function _gp_sectie_spelers($sectie_naam) {
   return $rows;
 }
 
-/**************************************************************************************/
-
 /**
- * Implementation of hook theme
- * This will register the theme function with drupal
+ * Implementation of hook_theme
+ * This will register the theme functions with drupal
  */
-function gigplanning_theme() {
+function gigplanning_theme($existing, $type, $theme, $path) {
   return array(
     'play_status' => array(
       'variables' => array('variables' => NULL ),
@@ -863,7 +861,32 @@ function gigplanning_theme() {
     'gp_gig_table' => array(
       'variables' => array('variables' => NULL),
      ),
+    // theme function to override optreden node form
+    'optreden_node_form' => array(
+      'render element' => 'form',
+      'template' => 'optreden-node-form',
+      // this will set to module/theme path by default:
+      'path' => drupal_get_path('module', 'gigplanning') . "/tpl",
+    ),
   );
+}
+
+/**
+ * Preprocessor for theme('optreden_node_form').
+ */
+function template_preprocess_optreden_node_form(&$variables) {
+  //we will re-arrange these fiels in our template file, so let's hide them first
+  hide($variables['form']['title']);
+  hide($variables['form']['field_status']);
+  hide($variables['form']['field_datum']);
+  hide($variables['form']['field_reageren']);
+  hide($variables['form']['field_tijd']);
+  hide($variables['form']['field_tijd_verzamelen']);
+  hide($variables['form']['field_also_invite']);
+  hide($variables['form']['field_invallers']);
+  hide($variables['form']['field_zichtbaar']);
+  hide($variables['form']['field_gage']);
+  hide($variables['form']['field_verzend_e_mail']);
 }
 
 /* the function for onstage_widget */
