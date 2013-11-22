@@ -1108,10 +1108,11 @@ function gigplanning_users_maintenance() {
 /**
  * Implements hook_user_insert().
  */
-function gigplanning_user_insert(&$edit, $account, $category) {
+ // FIXME function is switched off
+function gigplanning_user_insert_FIXME(&$edit, $account, $category) {
   $role = variable_get('gigplanning_role_bandmembers', 0);
   if (in_array($role, $account->roles)) {
-    drupal_set_message('New user uses GP. Add to Gig tablesruiker ');
+    drupal_set_message('New user uses Gigplanning. Add to Gig tablesruiker ');
     // nieuwe user toevoegen aan GP tabellen
     $gigs = gp_get_next_gigs();
     foreach ($gigs as $gig) {
