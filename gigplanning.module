@@ -29,7 +29,9 @@ function gigplanning_permission() {
           ),
       );
 }
-
+/**
+ * Implements hook_menu
+ */
 function gigplanning_menu() {
   $items['gigplanning/home'] = array(
     'title' => 'Gigplanning',
@@ -37,8 +39,17 @@ function gigplanning_menu() {
     'access callback' => 'user_access',
     'access arguments' => array('use_gigplanning'),
     'page callback' => 'gp_return_home',
-
   );
+  //REMOVE
+  $items['gigplanning/gigs'] = array(
+    'title' => 'Gigplanning',
+    'type' => MENU_CALLBACK,
+    'access callback' => 'user_access',
+    'access arguments' => array('use_gigplanning'),
+    'page callback' => 'gp_get_next_gigs',
+  );
+  
+  
   $items['optreden/set_stage'] = array(
     'delivery callback' => 'ajax_deliver',
     'title' => 'Optreden Set Stage',
@@ -362,20 +373,25 @@ function _gp_openstaande_optredens($uid) {
   return $output;
 }
 
-/* function returns an arra of nids for next Gigs based on params as listed here:
+/* function returns an array of nids for next Gigs based on params as listed here:
  * uid: which user // 0 for not specified
  *
  */
 function gp_get_next_gigs() {
-  $sql =
-   "SELECT nid
-    FROM {content_type_optreden} WHERE field_status_value <> 'geannuleerd' AND field_datum_value > NOW()";
-  $result = db_query($sql);
-  $result_arr = array();
-  while ($arr = $result->fetchAssoc()) {
-    $result_arr[] = $arr;
+  $now = time();
+  $query = new EntityFieldQuery();
+  $query-> entityCondition('entity_type', 'node')
+    ->entityCondition('bundle', 'optreden')
+    ->propertyCondition('status', 1)
+    ->fieldCondition('field_status', 'value', 'geannuleerd', '<>')
+    ->fieldCondition('field_datum', 'value', $now, '>');
+  $result = $query->execute();
+  if (isset($result['node'])) {
+    $optreden_nids = array_keys($result['node']);
+    //$news_items = entity_load('node', $news_items_nids);
   }
-  return $result_arr;
+  //debug print_r($optreden_nids);exit();
+  return $optreden_nids;
 }
 
 /**
@@ -1132,16 +1148,21 @@ function gigplanning_users_maintenance() {
 /**
  * Implements hook_user_insert().
  */
- // FIXME function is switched off
-function gigplanning_user_insert_FIXME(&$edit, $account, $category) {
-  $role = variable_get('gigplanning_role_bandmembers', 0);
-  if (in_array($role, $account->roles)) {
-    drupal_set_message('New user uses Gigplanning. Add to Gig tablesruiker ');
-    // nieuwe user toevoegen aan GP tabellen
-    $gigs = gp_get_next_gigs();
-    foreach ($gigs as $gig) {
-      gp_set_db($gig['nid'], $account-> uid, 'insert');
-      drupal_set_message('User added to node/' . $gig['nid']);
+function gigplanning_user_insert(&$edit, $account, $category) {
+  $role = variable_get('gigplanning_role_bandmembers');
+  if (!empty($role)) {
+    if (in_array($role, $account->roles)) {
+      drupal_set_message('New user uses Gigplanning. Added to GP tables');
+      // nieuwe user toevoegen aan GP tabellen
+      // retrieve all node_type optreden
+      // where !geannuleerd and older than now
+
+      
+      $gigs = gp_get_next_gigs();
+      foreach ($gigs as $gig) {
+        gp_set_db($gig['nid'], $account-> uid, 'insert');
+        drupal_set_message('User added to node/' . $gig['nid']);
+      }
     }
   }
 }
