@@ -17,13 +17,21 @@ function gigplanning_admin_settings() {
   $gp_roles = user_roles();
   //debug - drupal_set_message(print_r($fields));
 
-  $form['gigplanning_email_from_name'] = array (
+  $form['gigplanning_bandname'] = array (
     '#type' => 'textfield',
   '#maxlength' => 32,
   '#size' => 24,
-  '#title' => 'From-name used in emails',
-  '#description' => 'This name will be used in emails send by Gigplanning',
-  '#default_value' => variable_get('gigplanning_email_from_name', ''),
+  '#title' => ' Band name',
+  '#description' => 'This name of your band / orchestra',
+  '#default_value' => variable_get('gigplanning_bandname', 'bandname'),
+  );
+    $form['gigplanning_band_website'] = array (
+    '#type' => 'textfield',
+  '#maxlength' => 32,
+  '#size' => 24,
+  '#title' => 'Band website',
+  '#description' => 'Your bands website',
+  '#default_value' => variable_get('gigplanning_band_website', 'http://www.example.com'),
   );
   $form['gigplanning_podium_indeling'] = array (
     '#type' => 'radios',
@@ -76,7 +84,7 @@ function gigplanning_flex_settings() {
 
 function gigplanning_section_size_settings() {
   $sections_full = gp_get_all_sections_full();
-	//debug print_r($sections_full);exit();
+  //debug print_r($sections_full);exit();
   if (!empty($sections_full)) {
     foreach ($sections_full as $row) {
       $form['gigplanning_section_size_' . $row['id']] = array(

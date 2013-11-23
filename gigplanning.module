@@ -378,6 +378,7 @@ function _gp_openstaande_optredens($uid) {
  *
  */
 function gp_get_next_gigs() {
+  $nids = array();
   $now = time();
   $query = new EntityFieldQuery();
   $query-> entityCondition('entity_type', 'node')
@@ -387,11 +388,11 @@ function gp_get_next_gigs() {
     ->fieldCondition('field_datum', 'value', $now, '>');
   $result = $query->execute();
   if (isset($result['node'])) {
-    $optreden_nids = array_keys($result['node']);
+    $nids = array_keys($result['node']);
     //$news_items = entity_load('node', $news_items_nids);
   }
   //debug print_r($optreden_nids);exit();
-  return $optreden_nids;
+  return $nids;
 }
 
 /**
@@ -1117,8 +1118,8 @@ function gigplanning_block_view($delta = '') {
 
   if ($delta == 'welkom') {
     global $user;
-    $website = 'http://www.nightflighttorio.nl'; //variable_get('gp_band_website', 'http://www.gigplanning.com');
-    $name = 'Night Flight To Rio'; // TODO variable_get('gp_band_name', 'Gigplanning');
+    $website = variable_get('gigplanning_band_website', 'http://www.gigplanning.com');
+    $name = variable_get('gigplanning_bandname', 'Gigplanning');
     $output = t('This is the Gigplanning website for %band_name.<br />It is accessible for band members only. Please select <a href = @link>this link</a> to visit our public site.', array('%band_name' => $name, '@link' => $website ));
     if (is_actieve_speler($user-> uid)) {
       $output .= _gp_openstaande_optredens($user-> uid);
@@ -1154,14 +1155,10 @@ function gigplanning_user_insert(&$edit, $account, $category) {
     if (in_array($role, $account->roles)) {
       drupal_set_message('New user uses Gigplanning. Added to GP tables');
       // nieuwe user toevoegen aan GP tabellen
-      // retrieve all node_type optreden
-      // where !geannuleerd and older than now
-
-      
       $gigs = gp_get_next_gigs();
       foreach ($gigs as $gig) {
-        gp_set_db($gig['nid'], $account-> uid, 'insert');
-        drupal_set_message('User added to node/' . $gig['nid']);
+        gp_set_db($gig, $account-> uid, 'insert');
+        drupal_set_message($account-> name . ' added to node/' . $gig);
       }
     }
   }
@@ -1173,8 +1170,8 @@ function gigplanning_user_insert(&$edit, $account, $category) {
 function gigplanning_user_delete($account) {
   $gigs = gp_get_next_gigs();
   foreach($gigs as $gig) {
-    gp_set_db($gig['nid'], $account-> uid, 'delete');
-    drupal_set_message('User deleted from node/' . $gig['nid']);
+    gp_set_db($gig, $account-> uid, 'delete');
+    drupal_set_message('User deleted from node/' . $gig);
   }
 }
 
@@ -1187,8 +1184,8 @@ function gigplanning_user_update(&$edit, $account, $category) {
     // DEBUG drupal_Set_message('status changed from (active) ' . $account-> original-> status . ' to (blocked) ' . $account-> status);
     $gigs = gp_get_next_gigs();
     foreach($gigs as $gig) {
-      gp_set_db($gig['nid'], $account-> uid, 'delete');
-      drupal_set_message('User deleted from node/' . $gig['nid']);
+      gp_set_db($gig, $account-> uid, 'delete');
+      drupal_set_message($account-> name . ' deleted from node/' . $gig);
     }
   }
 }
