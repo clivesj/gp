@@ -351,23 +351,28 @@ function gp_gp_nametoid($name) {
   return $id;
 }
 
-/* Gebaseerd op bovenstaande functie
- * maakt een array van openstaande spelers
+/**
+ * Select all the gigs that are open for $uid
  * status: ja, nee, vraagteken, geenreactie
  * style: table, list
+ * @return An array with nid's of open gigs
  */
-
-
 function _gp_openstaande_optredens($uid) {
-  $sql = "SELECT b.nid
+  // During D6->D7 data migration the table content_type became obsolete
+  // So we cannot use query below
+  /*$sql = "SELECT b.nid
          FROM {gp_optredens} b JOIN {content_type_optreden} o ON b.nid = o.nid
-         WHERE b.uid = :uid AND b.speel_status = :speel_status AND o.field_status_value <> 'geannuleerd' AND o.field_datum_value > NOW()";
-  $res = db_query($sql, array(':uid' => $uid, ':speel_status' => 'geenreactie'));
-  $rows = array();
-  $output = "<h3>Listed below are the gigs which are open for this account</h2><ul>";
-  while ($ar = $res-> fetchAssoc()) {
-    $gig = node_load($ar['nid']);
-    $output .= "<li><a href='/node/" . $ar['nid'] . "'>" . $gig-> title . "</a></li>";
+         WHERE b.uid = :uid AND b.speel_status = :speel_status AND o.field_status_value <> 'geannuleerd' AND o.field_datum_value > NOW()";*/
+         
+  $nids = gp_get_next_gigs();
+  // Filter this gig array only to leave gigs for which current
+  // user has no reaction
+  if (!empty($nids)) {
+    $output = "<h3>Listed below are the gigs which are open for this account</h2><ul>";
+    foreach ($nids as $nid) {
+      $gig = node_load($nid);
+      $output .= "<li><a href='/node/" . $nid . "'>" . $gig-> title . "</a></li>";
+    }
   }
   $output .= "</ul>";
   return $output;
@@ -1134,6 +1139,8 @@ function gigplanning_block_view($delta = '') {
  * This is a maintanance function. Please run it after insterting or deleting a bandmemder
  * is assures. The gp_tables stays uo to date
  */
+ //FIXME - Function obsolete
+ // gp_get_current_gigs queries content_type table and cannot be used
 function gigplanning_users_maintenance() {
   // make shure all active players are listed in gigtables:
   $players = gp_get_active_players_list();
@@ -1204,6 +1211,8 @@ function _gp_user_maint($uid, $nid) {
 }
 
 //get the list of all current gigs
+ //FIXME - Function obsolete
+ // gp_get_current_gigs queries content_type table and cannot be used
 function gp_get_current_gigs() {
   $gigs = array();
   $sql = "SELECT nid FROM {content_type_optreden} WHERE DATE(field_datum_value) > CURDATE()";
@@ -1588,6 +1597,5 @@ function gigplanning_user_roles_edit($role) {
     $role->rid == $invaller) {
     return FALSE;
   }
-
   return user_access('administer permissions');
 }
