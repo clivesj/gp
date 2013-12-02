@@ -16,7 +16,6 @@ function gigplanning_init() {
  // drupal_add_js(drupal_get_path('module', 'gigplanning') .'/js/set_stage.js');
 }
 
-
 function gigplanning_permission() {
   return array(
       'change_booking_status' => array(
@@ -29,6 +28,7 @@ function gigplanning_permission() {
           ),
       );
 }
+
 /**
  * Implements hook_menu
  */
@@ -49,7 +49,6 @@ function gigplanning_menu() {
     'page callback' => 'gp_get_next_gigs',
   );
   
-  
   $items['optreden/set_stage'] = array(
     'delivery callback' => 'ajax_deliver',
     'title' => 'Optreden Set Stage',
@@ -60,6 +59,7 @@ function gigplanning_menu() {
     'delivery callback' => 'ajax_deliver',
     'type' => MENU_CALLBACK,
   );
+  
   $items['optreden/changestatus'] = array(
     'title' => 'Optreden',
     'access callback' => 'user_access',
@@ -69,7 +69,8 @@ function gigplanning_menu() {
    'delivery callback' => 'ajax_deliver',
     'type' => MENU_CALLBACK,
   );
-    $items['optreden/reminder'] = array(
+  
+  $items['optreden/reminder'] = array(
     'title' => 'Reminder E-mail',
     'access callback' => 'user_access',
     'access arguments' => array('send reminder'),
@@ -87,6 +88,7 @@ function gigplanning_menu() {
         'page arguments' => array('gp_optreden_handmatig_form'),
         'type' => MENU_CALLBACK,
     );
+    
   $items['admin/config/gigplanning'] = array(
     'title' => 'Gigplanning',
     'description' => 'Configure Gigplanning',
@@ -105,6 +107,7 @@ function gigplanning_menu() {
       'file' => 'gigplanning.admin.inc',
       'type' => MENU_NORMAL_ITEM,
   );
+  
   $items['admin/config/gigplanning/flex'] = array(
     'title' => 'Flex Sections',
     'page callback' => 'drupal_get_form',
@@ -112,6 +115,7 @@ function gigplanning_menu() {
     'access arguments' => array('administer site configuration'),
     'file' => 'gigplanning.admin.inc',
   );
+  
   $items['admin/config/gigplanning/section_size'] = array(
     'title' => 'Section Size',
     'page callback' => 'drupal_get_form',
@@ -119,6 +123,7 @@ function gigplanning_menu() {
     'access arguments' => array('administer site configuration'),
     'file' => 'gigplanning.admin.inc',
   );
+  
   $items['gp/sync_sections'] = array(
     'page callback' => 'gigplanning_sync_sections',
     'access arguments' => array('administer site configuration'),
@@ -357,19 +362,26 @@ function gp_gp_nametoid($name) {
  * style: table, list
  * @return An array with nid's of open gigs
  */
+//TODO: incorporate theme function
 function _gp_openstaande_optredens($uid) {
   // During D6->D7 data migration the table content_type became obsolete
-  // So we cannot use query below
-  /*$sql = "SELECT b.nid
-         FROM {gp_optredens} b JOIN {content_type_optreden} o ON b.nid = o.nid
-         WHERE b.uid = :uid AND b.speel_status = :speel_status AND o.field_status_value <> 'geannuleerd' AND o.field_datum_value > NOW()";*/
-         
-  $nids = gp_get_next_gigs();
-  // Filter this gig array only to leave gigs for which current
-  // user has no reaction
-  if (!empty($nids)) {
+  // So we cannot use query content_type table. We use array intersect instead
+  /* all next gigs */       
+  $nids_next = gp_get_next_gigs();
+  //debug($nids_next, 'next_gigs', TRUE);
+  /* open gigs for global user */
+  $sql = "SELECT nid FROM {gp_optredens} WHERE uid = :uid AND speel_status = :speel_status";
+  $res = db_query($sql, array(':uid' => $uid, ':speel_status' => 'geenreactie'));
+  $nids_user = array();
+  while ($ar = $res-> fetchAssoc()) {
+    $nids_user[] = $ar['nid'];
+  }
+  //debug($nids_user, 'Open gigs for user', TRUE);
+  /* valid open gigs for user */
+  $nids_user_open = array_intersect($nids_user, $nids_next);
+  if (!empty($nids_user_open)) {
     $output = "<h3>Listed below are the gigs which are open for this account</h2><ul>";
-    foreach ($nids as $nid) {
+    foreach ($nids_user_open as $nid) {
       $gig = node_load($nid);
       $output .= "<li><a href='/node/" . $nid . "'>" . $gig-> title . "</a></li>";
     }
