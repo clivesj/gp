@@ -413,8 +413,7 @@ function gp_get_next_gigs() {
 }
 
 /**
- * Implements hook_node_insert().
- * TODO: Language options oplossen ipv 'und'
+ * Implements hook_node_insert()
  */
 function gigplanning_node_insert($node) {
   if ($node-> type == "optreden") {
@@ -423,14 +422,14 @@ function gigplanning_node_insert($node) {
     $ids = _gp_get_all_players_uid($node);
     //DEBUG print_r($ids);exit();
     global $base_url;
-
+    $fields = _gp_node_fields($node-> nid);
     //opbouw mail
     $params['optreden_titel'] = $node-> title;
-    $params['optreden'] = "Optreden      : " . $node-> title ."\n\n";
-    $params['optreden'] .= "Datum optreden: " . substr($node-> field_datum['und'][0]['value'], 0, 10) ."\n";
-    $params['optreden'] .= "Reageren voor : " . substr($node-> field_reageren['und'][0]['value'], 0, 10) ."\n";
-    $params['optreden'] .= "Tijd          : " . $node-> field_tijd['und'][0]['value'] ."\n";
-    $params['optreden'] .= "Bijzonderheden:\n" . $node-> field_bijzonderheden['und'][0]['value'] . "\n\n";
+    $params['optreden'] = "Optreden      : " . $fields['title'] . "\n\n";
+    $params['optreden'] .= "Datum optreden: " . $fields['gig_date'] . "\n";
+    $params['optreden'] .= "Reageren voor : " . $fiels['reageren'] . "\n";
+    $params['optreden'] .= "Tijd          : " . $fields['tijd'] . "\n";
+    $params['optreden'] .= "Bijzonderheden:\n" . $fields['bijzonderheden'] . "\n\n";
     $params['optreden'] .= "Overige gegevens zijn nog niet bekend cq. beschikbaar op de website\n";
     $params['node_url'] = $base_url . "/node/". $node-> nid;
     $params['afz'] = gp_idtoname($node-> uid);
@@ -450,43 +449,56 @@ function gigplanning_node_insert($node) {
 /**
  * Implements hook_node_update().
  */
+ // TODO check whether node_load is needed. $node might be fully loaded already
 function gigplanning_node_update($node) {
   if ($node-> type == "optreden") {
-    if ($node->field_verzend_e_mail['und'][0]['value']) {
-      $verzend = TRUE;
-    }
-    else {
-      $verzend = FALSE;
-    }
     global $base_url;
+    $fields = _gp_node_fields($node->nid);
     // debug -    print_r($node);exit();
-   // $ids = gp_get_all_players_uid($node);
-   $ids = gp_players_this_gig($node);
+    // $ids = gp_get_all_players_uid($node);
+    $ids = gp_players_this_gig($node);
     // debug -  print_r($ids);
     foreach ($ids as $id) {
       //gegevens opslaan in tabel voor gegevens bezetting to DB
       /*gp_set_db($node-> nid, $id, 'edit'); hoeft niet igv edit*/
-      if ($verzend) {
+      if ($fields['verzend_email']) {
         // prepare mail
         $account = user_load($id);
         $params['account'] = $account;
-        $params['optreden_titel'] = $node-> title;
-        $params['optreden'] = "Datum optreden: ". substr($node-> field_datum['und'][0]['value'], 0, 10) ."\n\n";
-        $params['optreden'] .= "De gevens van dit optreden zijn aangepast.\nBijzonderheden:\n" . $node-> field_bijzonderheden['und'][0]['value'] . "\n\n" . "Selecteer onderstaande link voor meer informatie\n\n";
+        $params['optreden_titel'] = $fields['title'];
+        $params['optreden'] = "Datum optreden: " . $fields['gig_date'] . "\n\n";
+        $params['optreden'] .= "De gevens van dit optreden zijn aangepast.\nBijzonderheden:\n" . $fields['bijzonderheden'] . "\n\n" . "Selecteer onderstaande link voor meer informatie\n\n";
         $params['node_url'] = $base_url . "/node/". $node-> nid;
         $params['afz'] = gp_idtoname($node-> uid);
         drupal_mail('gigplanning', 'update_optreden', $account->mail, user_preferred_language($account), $params);
       }
     }
-    if (!$verzend) {
-     $sql ="UPDATE {field_data_field_verzend_e_mail} SET field_verzend_e_mail_value = :field_value WHERE :nid";
-     db_query($sql, array(':field_value' => 1, ':nid' => $node ->nid));
-     drupal_set_message(t("No email notifications send for this update"));
+    if (!$fields['verzend_email']) {
+      $wrapper = entity_metadata_wrapper('node', $node);
+      $wrapper-> field_data_field_verzend_e_mail-> set(1);
+      $wrapper-> save();
+      drupal_set_message(t("No email notifications send for this update"));
    }
    //remove players from db that are not anymore present in giglist
    // TODO - nut hiervan controleren
    gp_bezetting_remove_ghosts($ids, $node-> nid);
   }
+}
+
+/**
+ * returns an array with all relevamt field of a gig node
+ */
+function _gp_node_fields($nid) {
+  $node = node_load($nid);
+  $fields = array();
+  $wrapper = entity_metadata_wrapper('node', $node);
+  $fields['verzend_email'] = $wrapper ->field_verzend_e_mail-> value();
+  $fields['title'] = $wrapper ->title-> value();
+  $fields['gig_date'] = substr($wrapper-> field_datum-> value(), 0, 10);
+  $fields['bijzonderheden'] = $wrapper -> field_bijzonderheden-> value();
+  $fields['reageren'] = substr($wrapper-> field_reageren-> value(), 0, 10);
+  $fields['tijd'] = $wrapper ->field_tijd-> value();
+  return $fields;
 }
 
 /**
