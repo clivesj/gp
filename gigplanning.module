@@ -1364,7 +1364,7 @@ function theme_gp_gig_table($variables) {
           else {
             // Podium option not activated
             $output3 .= '<div class = "naam-label">' . $arr['name'] . '</div>';
-            $output3 .= play_status_theme(array('play_status' => $arr['speel_status'],  'uid' => $arr['uid'], 'stage' => NULL));
+            $output3 .= theme('play_status', array('play_status' => $arr['speel_status'],  'uid' => $arr['uid'], 'stage' => NULL));
           }
           $output3 .= '</div><! -- close div name-row>';
         } // each section_arr
