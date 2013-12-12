@@ -458,6 +458,8 @@ function gigplanning_node_update($node) {
     // $ids = gp_get_all_players_uid($node);
     $ids = gp_players_this_gig($node);
     // debug -  print_r($ids);
+		// FIXME HARCODED because TENB has different fieldname
+		$fields['vezend_email'] = TRUE;
     foreach ($ids as $id) {
       //gegevens opslaan in tabel voor gegevens bezetting to DB
       /*gp_set_db($node-> nid, $id, 'edit'); hoeft niet igv edit*/
@@ -492,7 +494,8 @@ function _gp_node_fields($nid) {
   $node = node_load($nid);
   $fields = array();
   $wrapper = entity_metadata_wrapper('node', $node);
-  $fields['verzend_email'] = $wrapper ->field_verzend_e_mail-> value();
+	// FIXME disabled tgis TENB has field_verzend_not
+ // $fields['verzend_email'] = $wrapper ->field_verzend_e_mail-> value();
   $fields['title'] = $wrapper ->title-> value();
   $fields['gig_date'] = substr($wrapper-> field_datum-> value(), 0, 10);
   $fields['bijzonderheden'] = $wrapper -> field_bijzonderheden-> value();
