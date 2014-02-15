@@ -501,10 +501,10 @@ function _gp_node_fields($nid) {
  // $fields['verzend_email'] = $wrapper ->field_verzend_e_mail-> value();
   $fields['title'] = $wrapper ->title-> value();
   $fields['gig_date'] = format_date($wrapper-> field_datum-> value(), 'custom', $medium_date);
-  $fields['bijzonderheden'] = $wrapper -> field_bijzonderheden-> value();
+  $fields['bijzonderheden'] = drupal_html_to_text($wrapper -> field_bijzonderheden-> value-> value());
   $fields['reageren'] = format_date($wrapper-> field_reageren-> value(), 'custom', $short_date);
   $fields['tijd'] = $wrapper ->field_tijd-> value();
-  //debug($fields);
+  debug($fields);
   return $fields;
 }
 
