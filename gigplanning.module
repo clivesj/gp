@@ -48,7 +48,7 @@ function gigplanning_menu() {
     'access arguments' => array('use_gigplanning'),
     'page callback' => 'gp_get_next_gigs',
   );
-  
+
   $items['optreden/set_stage'] = array(
     'delivery callback' => 'ajax_deliver',
     'title' => 'Optreden Set Stage',
@@ -59,7 +59,7 @@ function gigplanning_menu() {
     'delivery callback' => 'ajax_deliver',
     'type' => MENU_CALLBACK,
   );
-  
+
   $items['optreden/changestatus'] = array(
     'title' => 'Optreden',
     'access callback' => 'user_access',
@@ -69,7 +69,7 @@ function gigplanning_menu() {
    'delivery callback' => 'ajax_deliver',
     'type' => MENU_CALLBACK,
   );
-  
+
   $items['optreden/reminder'] = array(
     'title' => 'Reminder E-mail',
     'access callback' => 'user_access',
@@ -88,7 +88,7 @@ function gigplanning_menu() {
         'page arguments' => array('gp_optreden_handmatig_form'),
         'type' => MENU_CALLBACK,
     );
-    
+
   $items['admin/config/gigplanning'] = array(
     'title' => 'Gigplanning',
     'description' => 'Configure Gigplanning',
@@ -107,7 +107,7 @@ function gigplanning_menu() {
       'file' => 'gigplanning.admin.inc',
       'type' => MENU_NORMAL_ITEM,
   );
-  
+
   $items['admin/config/gigplanning/flex'] = array(
     'title' => 'Flex Sections',
     'page callback' => 'drupal_get_form',
@@ -115,7 +115,7 @@ function gigplanning_menu() {
     'access arguments' => array('administer site configuration'),
     'file' => 'gigplanning.admin.inc',
   );
-  
+
   $items['admin/config/gigplanning/section_size'] = array(
     'title' => 'Section Size',
     'page callback' => 'drupal_get_form',
@@ -123,7 +123,7 @@ function gigplanning_menu() {
     'access arguments' => array('administer site configuration'),
     'file' => 'gigplanning.admin.inc',
   );
-  
+
   $items['gp/sync_sections'] = array(
     'page callback' => 'gigplanning_sync_sections',
     'access arguments' => array('administer site configuration'),
@@ -366,7 +366,7 @@ function gp_gp_nametoid($name) {
 function _gp_openstaande_optredens($uid) {
   // During D6->D7 data migration the table content_type became obsolete
   // So we cannot use query content_type table. We use array intersect instead
-  /* all next gigs */       
+  /* all next gigs */
   $nids_next = gp_get_next_gigs();
   //debug($nids_next, 'next_gigs', TRUE);
   /* open gigs for global user */
@@ -488,19 +488,23 @@ function gigplanning_node_update($node) {
 }
 
 /**
- * returns an array with all relevamt field of a gig node
+ * returns an array with all relevant fields of a gig node
  */
 function _gp_node_fields($nid) {
+  $medium_date = 'D, d-m-Y';
+  $short_date = 'd-m-Y';
   $node = node_load($nid);
   $fields = array();
   $wrapper = entity_metadata_wrapper('node', $node);
+  //print_r($wrapper);exit();
 	// FIXME disabled tgis TENB has field_verzend_not
  // $fields['verzend_email'] = $wrapper ->field_verzend_e_mail-> value();
   $fields['title'] = $wrapper ->title-> value();
-  $fields['gig_date'] = substr($wrapper-> field_datum-> value(), 0, 10);
+  $fields['gig_date'] = format_date($wrapper-> field_datum-> value(), 'custom', $medium_date);
   $fields['bijzonderheden'] = $wrapper -> field_bijzonderheden-> value();
-  $fields['reageren'] = substr($wrapper-> field_reageren-> value(), 0, 10);
+  $fields['reageren'] = format_date($wrapper-> field_reageren-> value(), 'custom', $short_date);
   $fields['tijd'] = $wrapper ->field_tijd-> value();
+  //debug($fields);
   return $fields;
 }
 
@@ -536,7 +540,7 @@ function gp_set_db($nid, $id, $mode, $speel_status = 'geenreactie') {
        $res = db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
                    VALUES (:nid, :uid, :speel_status)",
               array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => $speel_status));
-      
+
       break;
     case 'delete':
       $result = db_query("DELETE FROM {gp_optredens} WHERE uid = :uid AND nid = :nid", array(':uid' => $id, ':nid' => $nid));
@@ -877,7 +881,7 @@ function deel_bezetting_arr($optreden_id, $speel_status){
  * RID 5 = 'vaste speler'. This is not hardcoded anymore
  */
 function _gp_sectie_spelers($sectie_naam) {
-  
+
   $sql = "SELECT u.name AS user_name
             FROM users u
               JOIN profile_value pv
@@ -1042,7 +1046,7 @@ function gigplanning_requirements($phase) {
 function gigplanning_sync_sections() {
   $sections = gp_get_all_sections_full();
   foreach ($sections as $section) {
-    if (!$section['id']) 
+    if (!$section['id'])
       { _gp_sync_section($section);}
   }
   drupal_goto('/admin/reports/status');
@@ -1451,25 +1455,25 @@ function _gp_reactie_balk($uid, $maybe, $node_id, $speel_status, $stage) {
      )
     ), 'setting');
   $gp_yes_path = $node_id .'/'. $uid . '/' . $stage . '/' . $maybe;
-  $yes_link = 
+  $yes_link =
     ctools_modal_text_button(t('Yes'),
       'gp_modal/nojs/form/' . $gp_yes_path,
         t('Ja, ik doe mee'),
           'ctools-modal-gp-modal-style reactie-balk-ja reactie-buttons-button');
-            
+
  // $maybe_link_none =  l(t('Maybe'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/vraagteken/' . $stage, array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'use-ajax reactie-buttons-button', 'style' => 'display:none;'))) . '</div>';
   $maybe_link      = l(t('Maybe'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/vraagteken/' . $stage, array('attributes' => array('id' => 'reactie-balk-vraagteken', 'class' => 'use-ajax reactie-buttons-button' ))) . '</div>';
  // $yes_link_display_none = l(t('Yes'), $yes_link array('attributes' => array('id' => 'reactie-balk-ja',  'class' => 'use-ajax reactie-buttons-button','style' => 'display:none;')));
 
 //  $no_link_display_none = l(t('No'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/nee/' . $stage, array('attributes' => array('id' => 'reactie-balk-nee', 'style' => 'display:none;', 'class' => 'use-ajax reactie-buttons-button' )));
   $no_link = l(t('No'), 'optreden/changestatus/nojs/'. $node_id .'/'. $uid . '/nee/' . $stage, array('attributes' => array('id' => 'reactie-balk-nee', 'class' => 'use-ajax reactie-buttons-button' )));
-  
+
   switch ($speel_status) {
     case 'ja':
       $ret1 = '<span class = "reactie-balk-text">Je hebt je al opgegeven voor dit optreden</span>';
       $ret2 = '<div id = "reactie-buttons">&nbsp;</div>';
          // $yes_link_display_none . $no_link_display_none . ($maybe ? $maybe_link_none : '')  . '</div>';
-         
+
       break;
     case 'nee':
       $ret1 = '<span class = "reactie-balk-text">Je doet niet mee. Je kunt dit indien gewenst alsnog aanpassen</span>';
@@ -1503,7 +1507,7 @@ function gigplanning_preprocess_node(&$variables) {
   }
 }
 
-function gp_modal_popup($js = NULL, $nid, $uid, $stage, $maybe_option) {  
+function gp_modal_popup($js = NULL, $nid, $uid, $stage, $maybe_option) {
   // degrade to no js
   if(!$js) {
     return drupal_get_form('gp_yes_modal_form');
@@ -1562,7 +1566,7 @@ function _gp_modal_style() {
 // lock gp user roles
 function gigplanning_theme_registry_alter(&$theme_registry) {
   $theme_registry['user_admin_roles']['function'] = '_gigplanning_user_admin_role_theme';
-} 
+}
 
 function _gigplanning_user_admin_role_theme($variables) {
  // $my_role_id = function_to_get_custom_role_id();
@@ -1618,7 +1622,7 @@ function gigplanning_menu_alter(&$items) {
 function gigplanning_user_roles_edit($role) {
   $vaste_speler = ($role = user_role_load_by_name('vaste speler')) ? $role->rid : NULL;
   $invaller = ($role = user_role_load_by_name('invaller')) ? $role->rid : NULL;
-  if ($role->rid == DRUPAL_ANONYMOUS_RID || 
+  if ($role->rid == DRUPAL_ANONYMOUS_RID ||
     $role->rid == DRUPAL_AUTHENTICATED_RID ||
     $role->rid == $vaste_speler ||
     $role->rid == $invaller) {
