@@ -380,15 +380,17 @@ function _gp_openstaande_optredens($uid) {
   /* valid open gigs for user */
   $nids_user_open = array_intersect($nids_user, $nids_next);
   if (!empty($nids_user_open)) {
-    $output = "<h3>Listed below are the gigs which are open for this account</h2><ul>";
+    $output = "<h3>Listed below are the gigs which are open for this account</h3><ul>";
     foreach ($nids_user_open as $nid) {
       $gig = node_load($nid);
       $output .= "<li><a href='/node/" . $nid . "'>" . $gig-> title . "</a></li>";
     }
+    $output .= "</ul>";
   }
-  $output .= "</ul>";
+  else {
+    $output = "<h3>There are no open gigs for this account</h3>";
+  }
   return $output;
-
 }
 
 /* function returns an array of nids for next Gigs based on params as listed here:
