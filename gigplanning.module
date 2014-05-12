@@ -360,23 +360,23 @@ function gp_gp_nametoid($name) {
  * Select all the gigs that are open for $uid
  * status: ja, nee, vraagteken, geenreactie
  * style: table, list
- * @return An array with nid's of open gigs
+ * @return array with nid's of open gigs
  */
 //TODO: incorporate theme function
 function _gp_openstaande_optredens($uid) {
   // During D6->D7 data migration the table content_type became obsolete
   // So we cannot use query content_type table. We use array intersect instead
-  /* all next gigs */
+  // * all next gigs *
   $nids_next = gp_get_next_gigs();
-  //debug($nids_next, 'next_gigs', TRUE);
-  /* open gigs for global user */
+  // debug($nids_next, 'next_gigs', TRUE);
+  // open gigs for global user
   $sql = "SELECT nid FROM {gp_optredens} WHERE uid = :uid AND speel_status = :speel_status";
   $res = db_query($sql, array(':uid' => $uid, ':speel_status' => 'geenreactie'));
   $nids_user = array();
   while ($ar = $res-> fetchAssoc()) {
     $nids_user[] = $ar['nid'];
   }
-  //debug($nids_user, 'Open gigs for user', TRUE);
+  // debug($nids_user, 'Open gigs for user', TRUE);
   /* valid open gigs for user */
   $nids_user_open = array_intersect($nids_user, $nids_next);
   if (!empty($nids_user_open)) {
@@ -388,6 +388,7 @@ function _gp_openstaande_optredens($uid) {
   }
   $output .= "</ul>";
   return $output;
+
 }
 
 /* function returns an array of nids for next Gigs based on params as listed here:
@@ -396,13 +397,13 @@ function _gp_openstaande_optredens($uid) {
  */
 function gp_get_next_gigs() {
   $nids = array();
-  $now = time();
+  $now = new DateTime('NOW');
   $query = new EntityFieldQuery();
   $query-> entityCondition('entity_type', 'node')
     ->entityCondition('bundle', 'optreden')
     ->propertyCondition('status', 1)
     ->fieldCondition('field_status', 'value', 'geannuleerd', '<>')
-    ->fieldCondition('field_datum', 'value', $now, '>');
+    ->fieldCondition('field_datum', 'value', $now->format('Y-mm-dd'), '>');
   $result = $query->execute();
   if (isset($result['node'])) {
     $nids = array_keys($result['node']);
@@ -1082,7 +1083,7 @@ function gp_count($needle, $haystack) {
  * Implements hook_block_info().
  */
 function gigplanning_block_info() {
-  $blocks['top_propasals'] = array(
+  $blocks['top_proposals'] = array(
     'info' => t('Top Proposals'),
     'visibility' => BLOCK_VISIBILITY_LISTED,
     'pages' => '<front>',
