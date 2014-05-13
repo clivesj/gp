@@ -346,7 +346,7 @@ function _gp_get_all_players_uid($node) {
   // invallers:
   $invallers = array();
   $invallers = field_get_items('node', $node, 'field_invallers');
-  debug($invallers);
+  // debug($invallers);
   if ($invallers) {
     foreach ($invallers as $arr) {
       $spelers_ids[] = $arr['uid'];
@@ -494,9 +494,9 @@ function gigplanning_node_update($node) {
       }
     }
     else {
-      $wrapper = entity_metadata_wrapper('node', $node);
-      $wrapper-> field_data_field_verzend_e_mail-> set(1);
-      $wrapper-> save();
+     // $wrapper = entity_metadata_wrapper('node', $node);
+     // $wrapper-> field_data_field_verzend_e_mail-> set(1);
+     // $wrapper-> save();
       drupal_set_message(t("No email notifications send for this update"));
     }
    //remove players from db that are not anymore present in giglist
@@ -522,7 +522,7 @@ function _gp_node_fields($nid) {
   $fields['bijzonderheden'] = drupal_html_to_text($wrapper -> field_bijzonderheden-> value-> value());
   $fields['reageren'] = format_date($wrapper-> field_reageren-> value(), 'custom', $short_date);
   $fields['tijd'] = $wrapper ->field_tijd-> value();
-  debug($fields);
+  //debug($fields);
   return $fields;
 }
 
@@ -1658,7 +1658,7 @@ function gp_manage_gig_table($nid, $edit_ids, $mode ) {
  * @param string $speel_status
  */
 function gp_set_db($nid, $id, $mode, $speel_status = 'geenreactie') {
-  //DEBUG drupal_set_message($id);
+  // drupal_set_message($id);
   switch ($mode) {
     case 'insert':
       $res = db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status) VALUES (:nid, :uid, :speel_status)",
