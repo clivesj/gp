@@ -33,6 +33,12 @@ function gigplanning_permission() {
  * Implements hook_menu
  */
 function gigplanning_menu() {
+  $items['gigplanning/rename_field'] = array (
+    'type' => MENU_CALLBACK,
+    'access callback' => 'user_access',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'gp_rename_field',
+  );
   $items['gigplanning/home'] = array(
     'title' => 'Gigplanning',
     'type' => MENU_NORMAL_ITEM,
@@ -268,11 +274,14 @@ function gp_optreden_changestatus($ajax, $gig_id, $speler_id, $new_status, $stag
 
 /**
  * returns an array of players-uid for this gig
+ * from the gig table (not from the gig node)
+ * @param $node int This gig's node id.
+ * @return array
  */
-function gp_players_this_gig($node) {
+function gp_players_this_gig($nid) {
   $ids = array();
   $sql = "SELECT uid FROM {gp_optredens} where nid = :nid";
-  $result = db_query($sql, array(':nid' => $node-> nid));
+  $result = db_query($sql, array(':nid' => $nid));
   while ($arr = $result-> fetchAssoc()) {
     $ids[] = $arr['uid'];
   }
@@ -280,10 +289,10 @@ function gp_players_this_gig($node) {
 }
 
 /**
- * Returns an array of players id selected for this gig
+ * Returns an array of players id selected for this gig (from the gig node)
  * pv.fid bevat de waarde voor "Sectie"
  * $nid, nid to check which players to exclude from gig
- * @param $node Current gig to select players
+ * @param $node Node gig to select players
  * @return array Array of
  */
 function _gp_get_all_players_uid($node) {
@@ -315,7 +324,7 @@ function _gp_get_all_players_uid($node) {
     }
   }
   //debug -   print_r($sections);
-  // get all the members for the modified sectionlist
+  // get all the members for the modified section list
   $sql="SELECT u.uid
         FROM users u
         JOIN profile_value pv ON (u.uid = pv.uid)
@@ -337,14 +346,11 @@ function _gp_get_all_players_uid($node) {
   // invallers:
   $invallers = array();
   $invallers = field_get_items('node', $node, 'field_invallers');
+  debug($invallers);
   if ($invallers) {
-    foreach ($invallers as $invaller) {
-      $value = field_view_value('node', $node, 'field_invallers', $invaller);
-      if ($value) {
-        $spelers_ids[] = $value;
-        //debug -       print_r($spelers_ids); //   drupal_set_message($invaller['uid']);
-       }
-     }
+    foreach ($invallers as $arr) {
+      $spelers_ids[] = $arr['uid'];
+    }
   }
   return $spelers_ids;
 }
@@ -433,7 +439,7 @@ function gigplanning_node_insert($node) {
     $params['optreden_titel'] = $node-> title;
     $params['optreden'] = "Optreden      : " . $fields['title'] . "\n\n";
     $params['optreden'] .= "Datum optreden: " . $fields['gig_date'] . "\n";
-    $params['optreden'] .= "Reageren voor : " . $fiels['reageren'] . "\n";
+    $params['optreden'] .= "Reageren voor : " . $fields['reageren'] . "\n";
     $params['optreden'] .= "Tijd          : " . $fields['tijd'] . "\n";
     $params['optreden'] .= "Bijzonderheden:\n" . $fields['bijzonderheden'] . "\n\n";
     $params['optreden'] .= "Overige gegevens zijn nog niet bekend cq. beschikbaar op de website\n";
@@ -460,22 +466,29 @@ function gigplanning_node_update($node) {
   if ($node-> type == "optreden") {
     global $base_url;
     $fields = _gp_node_fields($node->nid);
+   // debug($fields);
     // debug -    print_r($node);exit();
-    // $ids = gp_get_all_players_uid($node);
-    $ids = gp_players_this_gig($node);
+    /* $ids = gp_get_all_players_uid($node);
+      $ids consists of players already added to the gig table
+      $edit_ids consists of players on the node. This can be different from $ids because
+      there may be players added on edit*/
+    $ids = gp_players_this_gig($node-> nid);
+    $edit_ids = _gp_get_all_players_uid($node);
     // debug -  print_r($ids);
 		// FIXME HARCODED because TENB has different fieldname
 		//$fields['vezend_email'] = TRUE;
-    foreach ($ids as $id) {
-      //gegevens opslaan in tabel voor gegevens bezetting to DB
-      /*gp_set_db($node-> nid, $id, 'edit'); hoeft niet igv edit*/
+
+    // store or update players in gig table
+    gp_manage_gig_table($node-> nid, $edit_ids, 'update');
+    // foreach ($ids as $id) {
+    foreach ($edit_ids as $id) {
       //if ($fields['verzend_email']) {
         // prepare mail
         $account = user_load($id);
         $params['account'] = $account;
         $params['optreden_titel'] = $fields['title'];
         $params['optreden'] = "Datum optreden: " . $fields['gig_date'] . "\n\n";
-        $params['optreden'] .= "De gevens van dit optreden zijn aangepast.\nBijzonderheden:\n" . $fields['bijzonderheden'] . "\n\n" . "Selecteer onderstaande link voor meer informatie\n\n";
+        $params['optreden'] .= "De gegevens van dit optreden zijn aangepast.\nBijzonderheden:\n" . $fields['bijzonderheden'] . "\n\n" . "Selecteer onderstaande link voor meer informatie\n\n";
         $params['node_url'] = $base_url . "/node/". $node-> nid;
         $params['afz'] = gp_idtoname($node-> uid);
         drupal_mail('gigplanning', 'update_optreden', $account->mail, user_preferred_language($account), $params);
@@ -530,31 +543,7 @@ function gigplanning_node_delete($node) {
   }
 }
 
-/* vult voor 1 bepaalde user de gigtabel in.
- * sommige bestaande functies riepen deze subfunctie op zonder speel_status.
- */
-function gp_set_db($nid, $id, $mode, $speel_status = 'geenreactie') {
-  //DEBUG drupal_set_message($id);
-  switch ($mode) {
-    case 'insert':
-      $res = db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
-                   VALUES (:nid, :uid, :speel_status)",
-              array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => $speel_status));
-     break;
-    case 'edit':
-       $result = db_query("DELETE FROM {gp_optredens} WHERE uid = :uid AND nid = :nid", array(':uid' => $id, ':nid' => $nid));
-       $res = db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
-                   VALUES (:nid, :uid, :speel_status)",
-              array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => $speel_status));
 
-      break;
-    case 'delete':
-      $result = db_query("DELETE FROM {gp_optredens} WHERE uid = :uid AND nid = :nid", array(':uid' => $id, ':nid' => $nid));
-      break;
-    default:
-      drupal_set_message('Database error - default case on gp_set_db');
-  }
-}
 
 /*
  * function removes players from DB playerslist if they are
@@ -1635,4 +1624,127 @@ function gigplanning_user_roles_edit($role) {
     return FALSE;
   }
   return user_access('administer permissions');
+}
+
+/**
+ * When a gig node is edited this function will take an array of players on the node.
+ * It will compare this with the players already on the gig.
+ * Players on the node but not on the gig (yet) will be added to the gig.
+ *
+ * @param $nid Int nid of the gig
+ * @param $edit_ids array Array containing the ids on the node
+ * @param $mode string Node being change mode
+ */
+function gp_manage_gig_table($nid, $edit_ids, $mode ) {
+  $ids = array();
+  switch ($mode) {
+    case 'update':
+      // get all the id's from the gig table for this gig
+      $ids_table =  gp_players_this_gig($nid);
+      $ids = array_diff($edit_ids, $ids_table);
+      foreach ($ids as $id) {
+        gp_set_db($nid, $id, 'insert');
+      }
+      break;
+  }
+}
+
+/* vult voor 1 bepaalde user de gigtabel in.
+ * sommige bestaande functies riepen deze subfunctie op zonder speel_status.
+ */
+/**
+ * @param $nid nid of current Gig
+ * @param $id id of player
+ * @param $mode DB edit mode (edit, insert or delete)
+ * @param string $speel_status
+ */
+function gp_set_db($nid, $id, $mode, $speel_status = 'geenreactie') {
+  //DEBUG drupal_set_message($id);
+  switch ($mode) {
+    case 'insert':
+      $res = db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status) VALUES (:nid, :uid, :speel_status)",
+      array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => $speel_status));
+      break;
+    case 'edit':
+      $result = db_query("DELETE FROM {gp_optredens} WHERE uid = :uid AND nid = :nid", array(':uid' => $id, ':nid' => $nid));
+      $res = db_query("INSERT INTO {gp_optredens} (nid, uid, speel_status)
+                   VALUES (:nid, :uid, :speel_status)",
+      array( ':nid' =>$nid, ':uid' => $id, ':speel_status' => $speel_status));
+
+      break;
+    case 'delete':
+      $result = db_query("DELETE FROM {gp_optredens} WHERE uid = :uid AND nid = :nid", array(':uid' => $id, ':nid' => $nid));
+      break;
+    default:
+      drupal_set_message('Database error - default case on gp_set_db');
+  }
+}
+
+/**
+ * Rename an array of fields.
+ *
+ * Adapted from code in forum_update_7003(). See also
+ * zgadzaj.com/how-to-change-the-machine-name-of-a-content-field-in-
+ * drupal-7.
+ *
+ * @param $fields
+ *   Array of field names, with old names as keys and new names as values.
+ * @param $drop_first
+ *   Boolean: whether to drop any existing tables for the renamed fields. If
+ *   you have created the renamed field already - for example, by renaming
+ *   a field that was exported to Features and then reverting the feature -
+ *   you may wish to set this argument to TRUE so that your data will be
+ *   copied.
+ */
+function gp_site_rename_fields($fields, $drop_first = FALSE) {
+  foreach ($fields as $old_field_name => $new_field_name) {
+    // Read field data.
+    $old_field = field_read_field($old_field_name);
+    // Update {field_config}.
+    db_update('field_config')->fields(array('field_name' => $new_field_name))->condition('id', $old_field['id'])->execute();
+    // Update {field_config_instance}.
+    db_update('field_config_instance')->fields(array('field_name' => $new_field_name))->condition('field_id', $old_field['id'])->execute();
+    // The tables that need updating in the form 'old_name' => 'new_name'.
+    $tables = array(
+    'field_data_' . $old_field_name => 'field_data_' . $new_field_name,
+    'field_revision_' . $old_field_name => 'field_revision_' . $new_field_name,
+    );
+    // Iterate through tables to be redefined and renamed.
+    foreach ($tables as $old_table => $new_table) {
+      // Iterate through the field's columns. For example, a 'text' field will
+      // have columns 'value' and 'format'.
+      foreach ($old_field['columns'] as $column_name => $column_definition) {
+        // Column names are in the format {field_name}_{column_name}.
+        $old_column_name = $old_field_name . '_' . $column_name;
+        $new_column_name = $new_field_name . '_' . $column_name;
+        // If there is an index for the field, drop and then re-add it.
+        $has_index = isset($old_field['indexes'][$column_name]) && ($old_field['indexes'][$column_name] == array($column_name));
+        if ($has_index) {
+          db_drop_index($old_table, $old_column_name);
+        }
+        // Rename the column.
+        db_change_field($old_table, $old_column_name, $new_column_name, $column_definition);
+        if ($has_index) {
+          db_drop_index($old_table, $new_column_name);
+          db_add_index($old_table, $new_column_name, array($new_column_name));
+        }
+        watchdog('gigplanning', 'Renamed field !old_field_name to !new_field_name.', array('!old_field_name' => $old_field_name, '!new_field_name' => $new_field_name));
+      }
+      // The new table may exist e.g. due to having been included in a feature
+      // that was reverted prior to this update being run. If so, we need to
+      // drop the new table so that the old one can be renamed.
+      if ($drop_first && db_table_exists($new_table)) {
+        db_drop_table($new_table);
+      }
+      // Rename the table.
+      db_rename_table($old_table, $new_table);
+    }
+  }
+}
+
+function gp_rename_field($old_field, $new_field) {
+  $fields = array(
+    $old_field => $new_field,
+  );
+  gp_site_rename_fields($fields);
 }
