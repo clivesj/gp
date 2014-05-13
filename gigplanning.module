@@ -476,13 +476,12 @@ function gigplanning_node_update($node) {
     $edit_ids = _gp_get_all_players_uid($node);
     // debug -  print_r($ids);
 		// FIXME HARCODED because TENB has different fieldname
-		//$fields['vezend_email'] = TRUE;
 
     // store or update players in gig table
     gp_manage_gig_table($node-> nid, $edit_ids, 'update');
-    // foreach ($ids as $id) {
-    foreach ($edit_ids as $id) {
-      //if ($fields['verzend_email']) {
+
+    if ($fields['verzend_email']) {
+      foreach ($edit_ids as $id) {
         // prepare mail
         $account = user_load($id);
         $params['account'] = $account;
@@ -492,14 +491,14 @@ function gigplanning_node_update($node) {
         $params['node_url'] = $base_url . "/node/". $node-> nid;
         $params['afz'] = gp_idtoname($node-> uid);
         drupal_mail('gigplanning', 'update_optreden', $account->mail, user_preferred_language($account), $params);
-      //}
+      }
     }
-   /* if (!$fields['verzend_email']) {
+    else {
       $wrapper = entity_metadata_wrapper('node', $node);
       $wrapper-> field_data_field_verzend_e_mail-> set(1);
       $wrapper-> save();
       drupal_set_message(t("No email notifications send for this update"));
-   }*/
+    }
    //remove players from db that are not anymore present in giglist
    // TODO - nut hiervan controleren
    gp_bezetting_remove_ghosts($ids, $node-> nid);
@@ -517,7 +516,7 @@ function _gp_node_fields($nid) {
   $wrapper = entity_metadata_wrapper('node', $node);
   //print_r($wrapper);exit();
 	// FIXME disabled tgis TENB has field_verzend_not
- // $fields['verzend_email'] = $wrapper ->field_verzend_e_mail-> value();
+  $fields['verzend_email'] = $wrapper ->field_verzend_e_mail-> value();
   $fields['title'] = $wrapper ->title-> value();
   $fields['gig_date'] = format_date($wrapper-> field_datum-> value(), 'custom', $medium_date);
   $fields['bijzonderheden'] = drupal_html_to_text($wrapper -> field_bijzonderheden-> value-> value());
