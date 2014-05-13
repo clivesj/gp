@@ -279,9 +279,12 @@ function gp_players_this_gig($node) {
   return $ids;
 }
 
-/*
+/**
+ * Returns an array of players id selected for this gig
  * pv.fid bevat de waarde voor "Sectie"
  * $nid, nid to check which players to exclude from gig
+ * @param $node Current gig to select players
+ * @return array Array of
  */
 function _gp_get_all_players_uid($node) {
   $spelers_ids = array();
