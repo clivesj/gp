@@ -519,7 +519,7 @@ function _gp_node_fields($nid) {
   $fields['verzend_email'] = $wrapper ->field_verzend_e_mail-> value();
   $fields['title'] = $wrapper ->title-> value();
   $fields['gig_date'] = format_date($wrapper-> field_datum-> value(), 'custom', $medium_date);
-  if (!empty$node-> body) {
+  if (!empty($node-> body)) {
     $fields['bijzonderheden'] = drupal_html_to_text($wrapper -> field_bijzonderheden-> value-> value());
   }
   else {
