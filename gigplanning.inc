@@ -46,17 +46,6 @@ function gp_get_flex_sections() {
  return $flex_sections;
 }
 
-/*$excl_sections =
-if ($excl_sections) {
-  foreach ($excl_sections as $excl_section){
-    if ($excl_section) {
-      //unset this section
-      //debug -     drupal_set_message($excl_section. ' will be unset');
-      unset($sections[$excl_section]);
-    }
-  }
-}*/
-
 /**
  * @return array Array of players. Array key = uid
  */
@@ -77,7 +66,7 @@ if ($excl_sections) {
 */
 function gp_get_players_rehearsal() {
   $players = array();
-  $sql = "SELECT u.uid, u.`name` FROM users u
+  $sql = "SELECT u.uid, u.`name`, u.`mail` FROM users u
           LEFT JOIN users_roles ur
             ON (u.uid = ur.uid)
                WHERE (rid = :rid) AND (u.`status` = :user_status)";
@@ -91,6 +80,5 @@ function gp_get_players_rehearsal() {
   foreach ($flex['ids'] as $id) {
     unset($players[$id]);
   }
-
   return $players;
 }

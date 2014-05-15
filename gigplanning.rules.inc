@@ -49,8 +49,9 @@ function gigplanning_rules_action_info() {
   return $actions;
 }
 
-function gp_action_send_mail_rehearsal_players($to, $subject, $message, $from = NULL,
+function gp_action_send_mail_rehearsal($to, $subject, $message, $from = NULL,
                                                $langcode, $settings, RulesState $state, RulesPlugin $element) {
+  require_once('gigplanning.inc');
 
   $from = !empty($from) ? str_replace(array("\r", "\n"), '', $from) : NULL;
 
@@ -66,23 +67,23 @@ function gp_action_send_mail_rehearsal_players($to, $subject, $message, $from = 
 
   // Now, actually send the mails.
   $params = array(
-  'subject' => $subject,
-  'message' => $message,
+    'subject' => $subject,
+    'message' => $message,
   );
+
   // Set a unique key for this mail.
   $name = isset($element->root()->name) ? $element->root()->name : 'unnamed';
   $key = 'rules_action_mail_to_users_of_role_' . $name . '_' . $element->elementId();
   $languages = language_list();
 
+
   $message = array('result' => TRUE);
-  foreach ($result as $row) {
-    $message = drupal_mail('rules', $key, $row->mail, language_default(), $params, $from);
-    if (!$message['result']) {
-      break;
+
+  $players = gp_get_players_rehearsal();
+  foreach ($players as $player) {
+    $message = drupal_mail('rules', $key, $player['mail'], language_default(), $params, $from);
+    if ($message['result']) {
+      watchdog('gigplaning', 'Sent notification email to %player_name.', array('%player_name' => $player['name']));
     }
-  }
-  if ($message['result']) {
-    $role_names = array_intersect_key(user_roles(TRUE), array_flip($roles));
-    watchdog('rules', 'Successfully sent email to the role(s) %roles.', array('%roles' => implode(', ', $role_names)));
   }
 }

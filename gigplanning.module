@@ -11,11 +11,14 @@
  * Implements hook_init().
  */
 function gigplanning_init() {
+  global $user;
   require_once('gigplanning.inc');
-  $flex = gp_get_flex_sections();
-  debug($flex);
-  $sections = gp_get_players_rehearsal();
-  debug($sections);
+  // $flex = gp_get_flex_sections();
+  // debug($flex);
+  if ($user->uid == 1) {
+    $sections = gp_get_players_rehearsal();
+    debug($sections);
+  }
   drupal_add_library('system', 'drupal.ajax');
   drupal_add_css(drupal_get_path('module', 'gigplanning') .'/css/gigplanning.css');
  // drupal_add_js(drupal_get_path('module', 'gigplanning') .'/js/set_stage.js');
