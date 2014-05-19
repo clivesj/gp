@@ -15,10 +15,10 @@ function gigplanning_init() {
   require_once('gigplanning.inc');
   // $flex = gp_get_flex_sections();
   // debug($flex);
-  if ($user->uid == 1) {
+  /*if ($user->uid == 1) {
     $sections = gp_get_players_rehearsal();
     debug($sections);
-  }
+  }*/
   drupal_add_library('system', 'drupal.ajax');
   drupal_add_css(drupal_get_path('module', 'gigplanning') .'/css/gigplanning.css');
  // drupal_add_js(drupal_get_path('module', 'gigplanning') .'/js/set_stage.js');
@@ -272,7 +272,7 @@ function gp_optreden_changestatus($ajax, $gig_id, $speler_id, $new_status, $stag
         $reactie_text = t('Er staat voor een vraagteken voor dit optreden. Je kunt dit indien gewenst alsnog aanpassen');
   }
   $commands = array();
-  $commands[] = ajax_command_replace('#reactie-balk', _gp_reactie_balk($speler_id, $maybe, $gig_id, $new_status, $stage));
+  $commands[] = ajax_command_replace('#reactie-balk', _gp_reactie_balk($speler_id, $maybe_option, $gig_id, $new_status, $stage));
   $commands[] = ajax_command_replace('#play-status-' . $speler_id, theme('play_status', array('play_status' => $new_status, 'uid' => $speler_id, 'stage' => $stage)));
   return array(
     '#type' => 'ajax',
@@ -831,39 +831,50 @@ function gp_set_db_field($diff) {
 
 function gigplanning_mail($key, &$message, $params) {
   global $base_url;
+
   $language = $message['language'];
  // $variables = user_mail_tokens($params['account'], $language);
-  $footer = "Met vriendelijke groeten\n\n" .$params['afz'] ."\n**********\nDit is een automatisch bericht van " . variable_get('gigplanning_email_from_name', 'Gigplanning') . "\nReageren d.m.v. \"reply\" of \"beantwoorden\" is niet mogelijk";
+  $footer = "Met vriendelijke groeten\n\n"
+  //    .$params['afz']
+  ."\n**********\nDit is een automatisch bericht van " . variable_get('gigplanning_email_from_name', 'Gigplanning') . "\nReageren d.m.v. \"reply\" of \"beantwoorden\" is niet mogelijk";
+
   $message['body'] = array();
+
   switch ($key) {
-  case 'crontest':
-    $message['subject'] = "Reactie optreden: Deadline loopt af";
-    $message['body'][] = t("Beste speler\n\n"); // TODO $variables, $language->language); !username
-    $message['body'][] = "De deadline voor het optreden \n" . $base_url . "/node/". $params['optreden_id'] ."\n".
-        $params['verloopt'] ."\n\nGaarne zo snel mogelijk laten weten of je wel of niet kunt\n\n". $params['list'] ."\n\n";
-    $message['body'][] = $footer;
-    break;
-  case 'nwe_optreden':
-    $message['subject'] = "Aanvraag optreden: ". $params['optreden_titel'];
-    $message['body'][] = t("Beste speler\n\nEr is een aanvraag voor een optreden.
-          \nGaarne via onderstaande link op de website aangeven of je mee kunt doen.\n\n"); // TODO, $variables, $language->language);
-    $message['body'][] = $params['node_url'] ."\n\n";
-    $message['body'][] = $params['optreden'] ."\n";
-    $message['body'][]= $footer;
-    //echo($message['body']);exit();
-    break;
-  case 'update_optreden':
-    $message['subject'] = "Update: ". $params['optreden_titel'];
-    $message['body'][] = t("Beste speler\n"); // TODO , $variables, $language->language);
-    $message['body'][] = $params['optreden'] ."\n";
-    $message['body'][] = $params['node_url'] ."\n";
-    $message['body'][] = $footer;
-    break;
-  case 'manual_remind_mail':
-    $message['subject'] = "Reminder voor optreden";
-    $message['body'][] = $params['tekst'] ."\n\n";
-    break;
-  }
+    case 'crontest':
+      $message['subject'] = "Reactie optreden: Deadline loopt af";
+      $message['body'][] = t("Beste speler\n\n"); // TODO $variables, $language->language); !username
+      $message['body'][] = "De deadline voor het optreden \n" . $base_url . "/node/". $params['optreden_id'] ."\n".
+          $params['verloopt'] ."\n\nGaarne zo snel mogelijk laten weten of je wel of niet kunt\n\n". $params['list'] ."\n\n";
+      $message['body'][] = $footer;
+      break;
+    case 'nwe_optreden':
+      $message['subject'] = "Aanvraag optreden: ". $params['optreden_titel'];
+      $message['body'][] = t("Beste speler\n\nEr is een aanvraag voor een optreden.
+            \nGaarne via onderstaande link op de website aangeven of je mee kunt doen.\n\n"); // TODO, $variables, $language->language);
+      $message['body'][] = $params['node_url'] ."\n\n";
+      $message['body'][] = $params['optreden'] ."\n";
+      $message['body'][]= $footer;
+      //echo($message['body']);exit();
+      break;
+    case 'update_optreden':
+      $message['subject'] = "Update: ". $params['optreden_titel'];
+      $message['body'][] = t("Beste speler\n"); // TODO , $variables, $language->language);
+      $message['body'][] = $params['optreden'] ."\n";
+      $message['body'][] = $params['node_url'] ."\n";
+      $message['body'][] = $footer;
+      break;
+    case 'manual_remind_mail':
+      $message['subject'] = "Reminder voor optreden";
+      $message['body'][] = $params['tekst'] ."\n\n";
+      break;
+    case  'gp_action_send_mail_rehearsal':
+        $message['subject'] = $params['subject'];
+        $message['body'] = $params['message'];
+        break;
+    }
+
+
 }
 
 function deel_bezetting_arr($optreden_id, $speel_status){
@@ -1540,11 +1551,13 @@ function gp_modal_popup($js = NULL, $nid, $uid, $stage, $maybe_option) {
   exit;
 }
 
-function gp_yes_modal_form($form, &$form_state, $gp_path) {
+function gp_yes_modal_form($form, &$form_state, $gp_path = null) {
   $form['confirm yes'] = array(
     '#markup' => '<p>' .  t('Een YES is definitief en kan uitsluitend door de site administrator worden teruggedraaid. Weet je zeker dat je kunt?') . $form_state['redirect'] .  '</p>',
     );
 
+
+  
   $form['submit ja'] = array(
       '#type' => 'submit',
       '#value' => t('Yes'),

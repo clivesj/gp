@@ -42,48 +42,45 @@ function gigplanning_rules_action_info() {
           'optional' => TRUE,
         ),
       ),
-      'base' => 'gp_action_send_mail_rehearsal',
+      'base' => 'gp_rehearsal_rules_action_mail',
       //'access callback' => 'rules_system_integration_access',
     ),
   );
   return $actions;
 }
 
-function gp_action_send_mail_rehearsal($to, $subject, $message, $from = NULL,
-                                               $langcode, $settings, RulesState $state, RulesPlugin $element) {
+function gp_rehearsal_rules_action_mail($to, $subject, $message, $from = NULL, $langcode) {
+  debug($to,'to');
+  debug($subject, 'subject');
+  debug($message, 'message');
+  debug($from,'From');
+  
+
+
   require_once('gigplanning.inc');
 
-  $from = !empty($from) ? str_replace(array("\r", "\n"), '', $from) : NULL;
-
-  // All authenticated users, which is everybody.
-  if (in_array(DRUPAL_AUTHENTICATED_RID, $roles)) {
-    $result = db_query('SELECT mail FROM {users} WHERE uid > 0');
-  }
-  else {
-    $rids = implode(',', $roles);
-    // Avoid sending emails to members of two or more target role groups.
-    $result = db_query('SELECT DISTINCT u.mail FROM {users} u INNER JOIN {users_roles} r ON u.uid = r.uid WHERE r.rid IN (' . $rids . ')');
-  }
+ // $from = !empty($from) ? str_replace(array("\r", "\n"), '', $from) : NULL;
+  $form = 'info@gigplanning.com';
 
   // Now, actually send the mails.
   $params = array(
     'subject' => $subject,
     'message' => $message,
+    'langcode' => $langcode,
   );
 
-  // Set a unique key for this mail.
-  $name = isset($element->root()->name) ? $element->root()->name : 'unnamed';
-  $key = 'rules_action_mail_to_users_of_role_' . $name . '_' . $element->elementId();
-  $languages = language_list();
+  $players = gp_get_players_rehearsal();
 
+  // Set a unique key for this mail.
+  $key = 'gp_action_send_mail_rehearsal';
+  $languages = language_list();
 
   $message = array('result' => TRUE);
 
-  $players = gp_get_players_rehearsal();
   foreach ($players as $player) {
-    $message = drupal_mail('rules', $key, $player['mail'], language_default(), $params, $from);
+    $message = drupal_mail('gigplanning', $key, $player['mail'], language_default(), $params, $from);
     if ($message['result']) {
-      watchdog('gigplaning', 'Sent notification email to %player_name.', array('%player_name' => $player['name']));
+      watchdog('gigplanning', 'Sent notification email to %player_name.', array('%player_name' => $player['name']));
     }
   }
 }
