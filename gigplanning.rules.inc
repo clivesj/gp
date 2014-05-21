@@ -71,16 +71,12 @@ function gp_rehearsal_rules_action_mail($subject, $message, $from = NULL) {
   }
 }
 
-function mail_to_gig_players($subject, $message, $from, $node){
+function mail_to_gig_players($subject, $message, $from, $node) {
+  require_once('gigplanning.inc');
   /*debug($subject, 'subject');
   debug($message, 'message');
   debug($from,'From');
   debug($node-> nid, 'This node is passed to mail_to_gig_players')*/;
-
-  require_once('gigplanning.inc');
-
-  // $from = !empty($from) ? str_replace(array("\r", "\n"), '', $from) : NULL;
-  //$form = 'info@gigplanning.com';
 
   $players = gp_get_players_gig($node-> nid, true);
 
@@ -89,10 +85,10 @@ function mail_to_gig_players($subject, $message, $from, $node){
     'subject' => $subject,
     'mail_body' => $message,
     //'langcode' => $langcode,
-  );
+    );
 
   //key for hook_mail.
-  $key = 'gp_update_optreden';
+  $key = 'gp_notify_gig';
 
   $message = array('result' => TRUE);
 

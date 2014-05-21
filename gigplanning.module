@@ -144,10 +144,6 @@ function gigplanning_menu() {
     'page callback' => 'gigplanning_sync_sections',
     'access arguments' => array('administer site configuration'),
   );
-  /*  $items['gp/user_maintenance'] = array(
-    'page callback' => 'gigplanning_users_maintenance',
-    'access arguments' => array('administer site configuration'),
-  );*/
 
   $items['gp_modal/%ctools_js/form/%/%/%/%'] = array(
       'title' => 'AJAX modal dialog',
@@ -443,27 +439,10 @@ function gigplanning_node_insert($node) {
     $params = array();
     $ids = _gp_get_all_players_uid($node);
     //DEBUG print_r($ids);exit();
-    global $base_url;
-    $fields = _gp_node_fields($node-> nid);
-    //opbouw mail
-    $params['optreden_titel'] = $node-> title;
-    $params['optreden'] = "Optreden      : " . $fields['title'] . "\n\n";
-    $params['optreden'] .= "Datum optreden: " . $fields['gig_date'] . "\n";
-    $params['optreden'] .= "Reageren voor : " . $fields['reageren'] . "\n";
-    $params['optreden'] .= "Tijd          : " . $fields['tijd'] . "\n";
-    $params['optreden'] .= "Bijzonderheden:\n" . $fields['bijzonderheden'] . "\n\n";
-    $params['optreden'] .= "Overige gegevens zijn nog niet bekend cq. beschikbaar op de website\n";
-    $params['node_url'] = $base_url . "/node/". $node-> nid;
-    $params['afz'] = gp_idtoname($node-> uid);
-    //$account = gp_get_user_object($id);
-    //$params['account'] = $account;
+
     foreach ($ids as $key => $id) {
       //gegevens opslaan in tabel voor gegevens bezetting to DB
       gp_set_db($node-> nid, $id, 'insert', 'geenreactie');
-      $account = user_load($id, TRUE);
-      $params['account'] = $account;
-      //print_r($account);exit();
-      drupal_mail('gigplanning', 'nwe_optreden', $account->mail, user_preferred_language($account), $params);
     }
   }
 }
@@ -826,23 +805,7 @@ function gigplanning_mail($key, &$message, $params) {
           $params['verloopt'] ."\n\nGaarne zo snel mogelijk laten weten of je wel of niet kunt\n\n". $params['list'] ."\n\n";
       $message['body'][] = $footer;
       break;
-    case 'nwe_optreden':
-      $message['subject'] = "Aanvraag optreden: ". $params['optreden_titel'];
-      $message['body'][] = t("Beste speler\n\nEr is een aanvraag voor een optreden.
-            \nGaarne via onderstaande link op de website aangeven of je mee kunt doen.\n\n"); // TODO, $variables, $language->language);
-      $message['body'][] = $params['node_url'] ."\n\n";
-      $message['body'][] = $params['optreden'] ."\n";
-      $message['body'][]= $footer;
-      //echo($message['body']);exit();
-      break;
-    case 'update_optreden':
-      $message['subject'] = "Update: ". $params['optreden_titel'];
-      $message['body'][] = t("Beste speler\n"); // TODO , $variables, $language->language);
-      $message['body'][] = $params['optreden'] ."\n";
-      $message['body'][] = $params['node_url'] ."\n";
-      $message['body'][] = $footer;
-      break;
-    case 'gp_update_optreden':
+    case 'gp_notify_gig':
       $message['subject'] = $params['subject'];
       $message['body'][] = $header;
       $message['body'][] = $params['mail_body'];
