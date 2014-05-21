@@ -13,6 +13,8 @@
 function gigplanning_init() {
   global $user;
   require_once('gigplanning.inc');
+  //$players = gp_get_players_gig(84, true);
+  //debug($players);
   // $flex = gp_get_flex_sections();
   // debug($flex);
   /*if ($user->uid == 1) {
@@ -469,47 +471,23 @@ function gigplanning_node_insert($node) {
 /**
  * Implements hook_node_update().
  */
- // TODO check whether node_load is needed. $node might be fully loaded already
 function gigplanning_node_update($node) {
   if ($node-> type == "optreden") {
-    global $base_url;
-    $fields = _gp_node_fields($node->nid);
-   // debug($fields);
-    // debug -    print_r($node);exit();
-    /* $ids = gp_get_all_players_uid($node);
-      $ids consists of players already added to the gig table
+
+    /*
       $edit_ids consists of players on the node. This can be different from $ids because
-      there may be players added on edit*/
-    $ids = gp_players_this_gig($node-> nid);
+      there may be players added on edit
+    */
     $edit_ids = _gp_get_all_players_uid($node);
-    // debug -  print_r($ids);
-		// FIXME HARCODED because TENB has different fieldname
 
     // store or update players in gig table
     gp_manage_gig_table($node-> nid, $edit_ids, 'update');
 
-    if ($fields['verzend_email']) {
-      foreach ($edit_ids as $id) {
-        // prepare mail
-        $account = user_load($id);
-        $params['account'] = $account;
-        $params['optreden_titel'] = $fields['title'];
-        $params['optreden'] = "Datum optreden: " . $fields['gig_date'] . "\n\n";
-        $params['optreden'] .= "De gegevens van dit optreden zijn aangepast.\nBijzonderheden:\n" . $fields['bijzonderheden'] . "\n\n" . "Selecteer onderstaande link voor meer informatie\n\n";
-        $params['node_url'] = $base_url . "/node/". $node-> nid;
-        $params['afz'] = gp_idtoname($node-> uid);
-        drupal_mail('gigplanning', 'update_optreden', $account->mail, user_preferred_language($account), $params);
-      }
-    }
-    else {
-     // $wrapper = entity_metadata_wrapper('node', $node);
-     // $wrapper-> field_data_field_verzend_e_mail-> set(1);
-     // $wrapper-> save();
-      drupal_set_message(t("No email notifications send for this update"));
-    }
-   //remove players from db that are not anymore present in giglist
-   // TODO - nut hiervan controleren
-   gp_bezetting_remove_ghosts($ids, $node-> nid);
+    // notification will be sent by Rules module
+
+    //remove players from db that are not anymore present in giglist
+    // TODO - nut hiervan controleren
+    // gp_bezetting_remove_ghosts($ids, $node-> nid);
   }
 }
 
@@ -834,9 +812,9 @@ function gigplanning_mail($key, &$message, $params) {
 
   $language = $message['language'];
  // $variables = user_mail_tokens($params['account'], $language);
-  $footer = "Met vriendelijke groeten\n\n"
-  //    .$params['afz']
-  ."\n**********\nDit is een automatisch bericht van " . variable_get('gigplanning_email_from_name', 'Gigplanning') . "\nReageren d.m.v. \"reply\" of \"beantwoorden\" is niet mogelijk";
+  $to_name = ($params['to_name'] ? $params['to_name'] : 'speler');
+  $header = _gp_mail_header($to_name);
+  $footer = _gp_mail_footer();
 
   $message['body'] = array();
 
@@ -864,6 +842,12 @@ function gigplanning_mail($key, &$message, $params) {
       $message['body'][] = $params['node_url'] ."\n";
       $message['body'][] = $footer;
       break;
+    case 'gp_update_optreden':
+      $message['subject'] = $params['subject'];
+      $message['body'][] = $header;
+      $message['body'][] = $params['mail_body'];
+      $message['body'][] = $footer;
+      break;
     case 'manual_remind_mail':
       $message['subject'] = "Reminder voor optreden";
       $message['body'][] = $params['tekst'] ."\n\n";
@@ -872,9 +856,11 @@ function gigplanning_mail($key, &$message, $params) {
         $message['subject'] = $params['subject'];
         $message['body'] = $params['message'];
         break;
+    case  'gp_action_send_mail_gig':
+      $message['subject'] = $params['subject'];
+      $message['body'] = $params['message'];
+      break;
     }
-
-
 }
 
 function deel_bezetting_arr($optreden_id, $speel_status){
@@ -1557,7 +1543,7 @@ function gp_yes_modal_form($form, &$form_state, $gp_path = null) {
     );
 
 
-  
+
   $form['submit ja'] = array(
       '#type' => 'submit',
       '#value' => t('Yes'),
@@ -1772,4 +1758,16 @@ function gp_rename_field($old_field, $new_field) {
     $old_field => $new_field,
   );
   gp_site_rename_fields($fields);
+}
+
+function _gp_mail_header($name) {
+  return
+    t("Beste") . " " . $name . ",\n";
+}
+
+function _gp_mail_footer() {
+  return "Met vriendelijke groeten\n"
+          . "\n**********\nDit is een automatisch bericht van "
+          . variable_get('gigplanning_email_from_name', 'Gigplanning')
+          . "\n\nReageren d.m.v. \"reply\" of \"beantwoorden\" is niet mogelijk";
 }

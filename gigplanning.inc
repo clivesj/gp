@@ -28,6 +28,7 @@ function gp_get_players_role_id() {
  *   1 => '84',
  */
 
+
 function gp_get_flex_sections() {
   $sql = "SELECT pv.uid, u.`name` FROM {profile_value} pv
             LEFT JOIN users u ON (pv.uid = u.uid) WHERE `value` = :section_name";
@@ -80,5 +81,43 @@ function gp_get_players_rehearsal() {
   foreach ($flex['ids'] as $id) {
     unset($players[$id]);
   }
+  return $players;
+}
+
+/*  Sample Output:
+  array (
+    26 => array (
+      'uid' => '26',
+      'name' => 'viruproda',
+      'speel_status' => 'geenreactie',
+      'mail' => 'viruproda@dev7.yagoserver.com',
+      'on_stage' => '0',
+    ),
+    64 => array (
+      'uid' => '64',
+      'name' => 'tasloth',
+      'speel_status' => 'geenreactie',
+      'mail' => 'tasloth@dev7.yagoserver.com',
+      'on_stage' => '0',
+    ))*/
+function gp_get_players_gig($nid, $confirmed = false) {
+  $players = array();
+  if ($confirmed) {
+    $sql = "SELECT gpo.uid, u.`name`, gpo.speel_status, u.mail, gpo.on_stage FROM gp_optredens gpo
+            LEFT JOIN users u ON (gpo.uid = u.uid)
+            WHERE nid = :nid AND speel_status <> :speel_status";
+    $result = db_query($sql, array(':nid' => $nid, 'speel_status' => 'nee'));
+  }
+  else {
+    $sql = "SELECT gpo.uid, u.`name`, gpo.speel_status, u.mail, gpo.on_stage FROM gp_optredens gpo
+            LEFT JOIN users u ON (gpo.uid = u.uid)
+            WHERE nid = :nid";
+    $result = db_query($sql, array(':nid' => $nid));
+  }
+
+  foreach ($result as $row) {
+    $players[$row->uid] = (array)($row);
+  }
+  //debug($players, 'Gig player except reds');
   return $players;
 }

@@ -20,53 +20,39 @@ function gigplanning_rules_action_info() {
     'gigplanning_action_send_mail_rehearsal' => array(
       'label' => t('Send mail to GP rehearsal players'), // Name displayed to admins
       'group' => t('Gigplanning'), // Used for grouping actions in select lists
-      'parameter' => array(
-        /*'roles' => array(
-          'type' => 'list<integer>',
-          'options list' => 'entity_metadata_user_roles',
-          'description' => t('Select the roles whose users should receive the mail.'),*/
-        'subject' => array(
-          'type' => 'text',
-          'label' => t('Subject'),
-          'description' => t("The mail's subject."),
-        ),
-        'message' => array(
-          'type' => 'text',
-          'label' => t('Message'),
-          'description' => t("The mail's message body."),
-        ),
-        'from' => array(
-          'type' => 'text',
-          'label' => t('From'),
-          'description' => t("The mail's from address. Leave it empty to use the site-wide configured address."),
-          'optional' => TRUE,
-        ),
-      ),
+      'parameter' => _mail_parameters(),
       'base' => 'gp_rehearsal_rules_action_mail',
       //'access callback' => 'rules_system_integration_access',
     ),
+
+    'gigplanning_action_mail_gigplayers' => array(
+      'label' => t('Send mail to players of a Gig'), // Name displayed to admins
+      'group' => t('Gigplanning'), // Used for grouping actions in select lists
+      'parameter' => _mail_parameters() + _node_parameter(),
+      'base' => 'mail_to_gig_players',
+    )
   );
   return $actions;
 }
 
-function gp_rehearsal_rules_action_mail($to, $subject, $message, $from = NULL, $langcode) {
-  debug($to,'to');
+function gp_rehearsal_rules_action_mail($subject, $message, $from = NULL) {
+  //debug($to,'to');
   debug($subject, 'subject');
   debug($message, 'message');
   debug($from,'From');
-  
+
 
 
   require_once('gigplanning.inc');
 
- // $from = !empty($from) ? str_replace(array("\r", "\n"), '', $from) : NULL;
+  // $from = !empty($from) ? str_replace(array("\r", "\n"), '', $from) : NULL;
   $form = 'info@gigplanning.com';
 
   // Now, actually send the mails.
   $params = array(
     'subject' => $subject,
     'message' => $message,
-    'langcode' => $langcode,
+   // 'langcode' => $langcode,
   );
 
   $players = gp_get_players_rehearsal();
@@ -83,4 +69,67 @@ function gp_rehearsal_rules_action_mail($to, $subject, $message, $from = NULL, $
       watchdog('gigplanning', 'Sent notification email to %player_name.', array('%player_name' => $player['name']));
     }
   }
+}
+
+function mail_to_gig_players($subject, $message, $from, $node){
+  /*debug($subject, 'subject');
+  debug($message, 'message');
+  debug($from,'From');
+  debug($node-> nid, 'This node is passed to mail_to_gig_players')*/;
+
+  require_once('gigplanning.inc');
+
+  // $from = !empty($from) ? str_replace(array("\r", "\n"), '', $from) : NULL;
+  //$form = 'info@gigplanning.com';
+
+  $players = gp_get_players_gig($node-> nid, true);
+
+  // Now, actually send the mails.
+  $params = array(
+    'subject' => $subject,
+    'mail_body' => $message,
+    //'langcode' => $langcode,
+  );
+
+  //key for hook_mail.
+  $key = 'gp_update_optreden';
+
+  $message = array('result' => TRUE);
+
+  foreach ($players as $player) {
+    $params['to_name'] = $player['name'];
+    $result = drupal_mail('gigplanning', $key, $player['mail'], language_default(), $params, $from);
+    if ($result['result']) {
+      //watchdog('gigplanning', 'Sent notification email to %player_name.', array('%player_name' => $player['name']));
+    }
+  }
+}
+
+function _mail_parameters() {
+  return array(
+    'subject' => array(
+      'type' => 'text',
+      'label' => t('Subject'),
+      'description' => t("The mail's subject."),
+    ),
+    'message' => array(
+      'type' => 'text',
+      'label' => t('Message'),
+      'description' => t("The mail's message body."),
+    ),
+    'from' => array(
+      'type' => 'text',
+      'label' => t('From'),
+      'description' => t("The mail's from address. Leave it empty to use the site-wide configured address."),
+      'optional' => TRUE,
+    ),
+  );
+}
+
+
+function _node_parameter() {
+  return
+    array(
+      'node' => array('type' => 'node', 'label' => t('Content'), 'save' => TRUE),
+    );
 }

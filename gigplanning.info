@@ -4,6 +4,7 @@ description = Gigplanning to manage your band
 package = "Gigplanning"
 dependencies[] = date
 dependencies[] = entity
+dependencies[] = rules
 stylesheets[all][] = gigplanning.css
 ;scripts[] = /misc/tableheader.js
 version = "7.x-1.1"
