@@ -100,6 +100,7 @@ function gp_get_players_rehearsal() {
       'mail' => 'tasloth@dev7.yagoserver.com',
       'on_stage' => '0',
     ))*/
+
 function gp_get_players_gig($nid, $confirmed = false) {
   $players = array();
   if ($confirmed) {

@@ -72,7 +72,7 @@ function gigplanning_menu() {
     'access arguments' => array('change_booking_status'),
     'description' => '',
     'page callback' => 'gp_optreden_set_stage',
-    'delivery callback' => 'ajax_deliver',
+    //'delivery callback' => 'ajax_deliver',
     'type' => MENU_CALLBACK,
   );
 
@@ -471,32 +471,6 @@ function gigplanning_node_update($node) {
 }
 
 /**
- * returns an array with all relevant fields of a gig node
- */
-function _gp_node_fields($nid) {
-  $medium_date = 'D, d-m-Y';
-  $short_date = 'd-m-Y';
-  $node = node_load($nid);
-  $fields = array();
-  $wrapper = entity_metadata_wrapper('node', $node);
-  //print_r($wrapper);exit();
-	// FIXME disabled tgis TENB has field_verzend_not
-  $fields['verzend_email'] = $wrapper ->field_verzend_e_mail-> value();
-  $fields['title'] = $wrapper ->title-> value();
-  $fields['gig_date'] = format_date($wrapper-> field_datum-> value(), 'custom', $medium_date);
-  if (!empty($node-> body)) {
-    $fields['bijzonderheden'] = drupal_html_to_text($wrapper -> field_bijzonderheden-> value-> value());
-  }
-  else {
-    $fields['bijzonderheden'] = t('Not available.');
-  }
-  $fields['reageren'] = format_date($wrapper-> field_reageren-> value(), 'custom', $short_date);
-  $fields['tijd'] = $wrapper ->field_tijd-> value();
-  //debug($fields);
-  return $fields;
-}
-
-/**
  * Implements hook_node_delete().
  */
 function gigplanning_node_delete($node) {
@@ -511,8 +485,6 @@ function gigplanning_node_delete($node) {
     }
   }
 }
-
-
 
 /*
  * function removes players from DB playerslist if they are
@@ -719,8 +691,6 @@ function gp_manual_remind_mail($name_arr, $mail_text, $nid) {
     $params['afz'] = $user-> name;
   //$params['from'] = $user-> mail;
   foreach ($name_arr as $naam){
-    //D6   $account = user_load(array('name' => check_plain($naam)));
-    //D7:
     $account = user_load_by_name($naam);
     $params['account'] = $account;
     drupal_mail('gigplanning', 'manual_remind_mail', $account->mail .",". $user->mail , user_preferred_language($account), $params);
@@ -948,6 +918,7 @@ function gp_get_all_sections() {
   while ($row = $result-> fetchAssoc()) {
     $sections[$row['value']] = $row['value'];
   }
+  //debug($sections, 'from gp_get_all_sections');
   return $sections;
 }
 
@@ -962,6 +933,7 @@ function gp_get_all_sections_full() {
   while ($row = $result-> fetchAssoc()) {
     $rows[] = $row;
   }
+  //debug($rows, 'from gp_get_all_sections_full');
   return $rows;
 }
 
@@ -1243,7 +1215,7 @@ function gp_add_player_to_gig($uid, $nid) {
 
 /*
  * This theme function adds a table on a node containing the players of
- * the band and wether or not they can attend a gig
+ * the band and whether or not they can attend a gig
  *
  */
 function _gp_gig_table_get_variables($nid) {
@@ -1531,7 +1503,7 @@ function _gp_modal_style() {
   );
 }
 
-// override core theme fumction user_admin_role, so we can
+// override core theme function user_admin_role, so we can
 // lock gp user roles
 function gigplanning_theme_registry_alter(&$theme_registry) {
   $theme_registry['user_admin_roles']['function'] = '_gigplanning_user_admin_role_theme';
